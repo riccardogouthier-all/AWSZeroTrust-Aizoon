@@ -1,0 +1,10 @@
+AWS
+ec2 x3
+nginx WAF
+[EC2 WEB]  Docker + OWASP Juice Shop (bkimminich/juice-shop)           
+
+SYC
+aiuto per le reti
+ModSecurity 
+OWASP CRS
+Wazuh all-in-one
