@@ -1,0 +1,54 @@
+- name: Configure Wazuh all in one
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Create private installation directory
+      ansible.builtin.file:
+        path: /opt/aizoon
+        state: directory
+        mode: '0700'
+    - name: Download official Wazuh 4.14 installer
+      ansible.builtin.get_url:
+        url: https://packages.wazuh.com/4.14/wazuh-install.sh
+        dest: /opt/aizoon/wazuh-install.sh
+        mode: '0700'
+    - name: Install Wazuh without publishing generated credentials in SSM output
+      ansible.builtin.shell: bash /opt/aizoon/wazuh-install.sh -a > /opt/aizoon/wazuh-install-private.log 2>&1 && touch /opt/aizoon/wazuh-install.complete
+      args:
+        chdir: /opt/aizoon
+        creates: /opt/aizoon/wazuh-install.complete
+      no_log: true
+    - name: Archive all received JSON events for the baseline exercise
+      ansible.builtin.replace:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<logall_json>no</logall_json>'
+        replace: '<logall_json>yes</logall_json>'
+      notify: Restart manager
+    - name: Add lab ModSecurity detection rule
+      ansible.builtin.copy:
+        dest: /var/ossec/etc/rules/aizoon_rules.xml
+        mode: '0640'
+        owner: root
+        group: wazuh
+        content: |
+          <group name="aizoon,web,">
+            <rule id="100100" level="7">
+              <match>ModSecurity</match>
+              <description>Aizoon lab WAF ModSecurity event</description>
+            </rule>
+          </group>
+      notify: Restart manager
+    - name: Disable automatic Wazuh repository upgrades
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/wazuh.list
+        regexp: '^deb '
+        replace: '#deb '
+    - name: Validate Wazuh manager configuration
+      ansible.builtin.command: /var/ossec/bin/wazuh-analysisd -t
+      changed_when: false
+  handlers:
+    - name: Restart manager
+      ansible.builtin.systemd:
+        name: wazuh-manager
+        state: restarted

@@ -1,0 +1,81 @@
+- name: Configure Wazuh and CloudWatch agents
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Install agent prerequisites
+      ansible.builtin.apt:
+        name: [gnupg, python3-boto3]
+        state: present
+        update_cache: true
+    - name: Configure signed Wazuh repository
+      ansible.builtin.shell: |
+        set -euo pipefail
+        curl -fsSL https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --dearmor --yes -o /usr/share/keyrings/wazuh.gpg
+        echo 'deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main' > /etc/apt/sources.list.d/wazuh.list
+        apt-get update -qq
+        version=$(apt-cache madison wazuh-agent | awk '!found && $3 ~ /^4\.14\./ { print $3; found=1 }')
+        test -n "$version"
+        WAZUH_MANAGER=LAB_SIEM_IP WAZUH_AGENT_NAME=LAB_ROLE apt-get install -y "wazuh-agent=$version"
+        echo "$version" > /opt/aizoon/wazuh-agent-version
+      args:
+        executable: /bin/bash
+        creates: /var/ossec/bin/wazuh-control
+    - name: Configure container and WAF log collection
+      ansible.builtin.blockinfile:
+        path: /var/ossec/etc/ossec.conf
+        insertbefore: '</ossec_config>'
+        marker: '<!-- {mark} AIZOON LOG INPUTS -->'
+        block: |
+          <localfile>
+            <log_format>json</log_format>
+            <location>/var/lib/docker/containers/*/*-json.log</location>
+          </localfile>
+          <localfile>
+            <log_format>apache</log_format>
+            <location>/opt/aizoon/logs/access.log</location>
+          </localfile>
+          <localfile>
+            <log_format>syslog</log_format>
+            <location>/opt/aizoon/logs/error.log</location>
+          </localfile>
+      notify: Restart Wazuh agent
+    - name: Enable Wazuh agent
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        enabled: true
+        state: started
+    - name: Download CloudWatch agent
+      ansible.builtin.get_url:
+        url: https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+        dest: /opt/aizoon/amazon-cloudwatch-agent.deb
+        mode: '0600'
+    - name: Install CloudWatch agent
+      ansible.builtin.apt:
+        deb: /opt/aizoon/amazon-cloudwatch-agent.deb
+    - name: Configure host metrics
+      ansible.builtin.copy:
+        dest: /opt/aws/amazon-cloudwatch-agent/etc/aizoon.json
+        mode: '0600'
+        content: |
+          {
+            "agent": {"metrics_collection_interval": 60, "region": "LAB_REGION"},
+            "metrics": {
+              "namespace": "AizoonLab",
+              "append_dimensions": {"InstanceId": "${aws:InstanceId}"},
+              "metrics_collected": {
+                "mem": {"measurement": ["mem_used_percent"]},
+                "disk": {"measurement": ["used_percent"], "resources": ["/"], "drop_device": true}
+              }
+            },
+            "logs": {"logs_collected": {"files": {"collect_list": [
+              {"file_path": "/var/log/syslog", "log_group_name": "/LAB_PROJECT/system", "log_stream_name": "{instance_id}/syslog"}
+            ]}}}
+          }
+    - name: Start configured CloudWatch agent
+      ansible.builtin.command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/aizoon.json -s
+  handlers:
+    - name: Restart Wazuh agent
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        state: restarted

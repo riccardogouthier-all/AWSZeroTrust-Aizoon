@@ -1,0 +1,8 @@
+{
+  "registration_status": 201,
+  "ordinary_login_status": 200,
+  "token_received": true,
+  "tls_verified": true,
+  "synthetic_account": true,
+  "credentials_saved": false
+}

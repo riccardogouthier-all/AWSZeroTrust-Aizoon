@@ -1,0 +1,34 @@
+- name: Configure SIEM CloudWatch metrics
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Download CloudWatch agent
+      ansible.builtin.get_url:
+        url: https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+        dest: /opt/aizoon/amazon-cloudwatch-agent.deb
+        mode: '0600'
+    - name: Install CloudWatch agent
+      ansible.builtin.apt:
+        deb: /opt/aizoon/amazon-cloudwatch-agent.deb
+    - name: Configure host metrics
+      ansible.builtin.copy:
+        dest: /opt/aws/amazon-cloudwatch-agent/etc/aizoon.json
+        mode: '0600'
+        content: |
+          {
+            "agent": {"metrics_collection_interval": 60, "region": "LAB_REGION"},
+            "metrics": {
+              "namespace": "AizoonLab",
+              "append_dimensions": {"InstanceId": "${aws:InstanceId}"},
+              "metrics_collected": {
+                "mem": {"measurement": ["mem_used_percent"]},
+                "disk": {"measurement": ["used_percent"], "resources": ["/"], "drop_device": true}
+              }
+            },
+            "logs": {"logs_collected": {"files": {"collect_list": [
+              {"file_path": "/var/log/syslog", "log_group_name": "/LAB_PROJECT/system", "log_stream_name": "{instance_id}/syslog"}
+            ]}}}
+          }
+    - name: Start configured CloudWatch agent
+      ansible.builtin.command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/aizoon.json -s

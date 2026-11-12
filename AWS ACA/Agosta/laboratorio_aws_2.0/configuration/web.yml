@@ -1,0 +1,42 @@
+- name: Configure private Juice Shop host
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Install Docker
+      ansible.builtin.apt:
+        name: docker.io
+        state: present
+        update_cache: true
+    - name: Enable Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+    - name: Create deployment directory
+      ansible.builtin.file:
+        path: /opt/aizoon
+        state: directory
+        mode: '0700'
+    - name: Resolve Juice Shop image once and start the pinned image
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if [ ! -s /opt/aizoon/juice-image ]; then
+          docker pull LAB_JUICE_IMAGE
+          docker image inspect LAB_JUICE_IMAGE --format '{{ '{{' }}index .RepoDigests 0{{ '}}' }}' > /opt/aizoon/juice-image
+        fi
+        if ! docker inspect juice-shop >/dev/null 2>&1; then
+          docker run -d --name juice-shop --restart unless-stopped \
+            --log-opt max-size=10m --log-opt max-file=3 \
+            -p 3000:3000 "$(cat /opt/aizoon/juice-image)"
+        fi
+      args:
+        executable: /bin/bash
+    - name: Verify local application
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/
+        status_code: 200
+      register: app_ready
+      retries: 30
+      delay: 5
+      until: app_ready.status == 200

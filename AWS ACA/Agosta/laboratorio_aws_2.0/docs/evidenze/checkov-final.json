@@ -1,0 +1,47 @@
+{
+  "summary": {
+    "passed": 116,
+    "failed": 7,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 58,
+    "checkov_version": "3.4.5"
+  },
+  "failed_checks": [
+    {
+      "check_id": "CKV_AWS_158",
+      "check_name": "Ensure that CloudWatch Log Group is encrypted by KMS",
+      "resource": "aws_cloudwatch_log_group.system"
+    },
+    {
+      "check_id": "CKV_AWS_338",
+      "check_name": "Ensure CloudWatch log groups retains logs for at least 1 year",
+      "resource": "aws_cloudwatch_log_group.system"
+    },
+    {
+      "check_id": "CKV_AWS_26",
+      "check_name": "Ensure all data stored in the SNS topic is encrypted",
+      "resource": "aws_sns_topic.alerts"
+    },
+    {
+      "check_id": "CKV_AWS_166",
+      "check_name": "Ensure Backup Vault is encrypted at rest using KMS CMK",
+      "resource": "aws_backup_vault.lab"
+    },
+    {
+      "check_id": "CKV_AWS_394",
+      "check_name": "Ensure aws_availability_zones data source pins zone identity so its result set does not silently expand when AWS adds an Availability Zone",
+      "resource": "aws_availability_zones.available"
+    },
+    {
+      "check_id": "CKV2_AWS_5",
+      "check_name": "Ensure that Security Groups are attached to another resource",
+      "resource": "aws_security_group.host[\"waf\"]"
+    },
+    {
+      "check_id": "CKV2_AWS_5",
+      "check_name": "Ensure that Security Groups are attached to another resource",
+      "resource": "aws_security_group.host[\"web\"]"
+    }
+  ]
+}

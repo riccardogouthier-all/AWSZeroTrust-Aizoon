@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "url": "https://localhost:8443/app/login?",
+  "title": "Wazuh",
+  "login_text_present": true,
+  "authenticated_login_tested": false
+}

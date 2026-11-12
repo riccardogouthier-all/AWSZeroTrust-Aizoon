@@ -1,0 +1,63 @@
+- name: Monitor actual HTTPS application availability
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Install monitoring SDK
+      ansible.builtin.apt:
+        name: python3-boto3
+        state: present
+    - name: Write HTTPS health publisher
+      ansible.builtin.copy:
+        dest: /opt/aizoon/https-health.py
+        mode: '0700'
+        content: |
+          import ssl
+          import urllib.request
+          import boto3
+          available = 0
+          try:
+              context = ssl.create_default_context(cafile='/opt/aizoon/tls/lab-ca.crt')
+              with urllib.request.urlopen('https://LAB_WAF_IP/', context=context, timeout=10) as response:
+                  available = int(response.status == 200 and b'Juice Shop' in response.read(4096))
+          except Exception as error:
+              print(type(error).__name__)
+          boto3.client('cloudwatch', region_name='LAB_REGION').put_metric_data(
+              Namespace='AizoonLab', MetricData=[{
+                  'MetricName': 'HTTPSAvailable', 'Value': available, 'Unit': 'Count',
+                  'Dimensions': [{'Name': 'Project', 'Value': 'LAB_PROJECT'}]
+              }])
+          print('HTTPSAvailable=' + str(available))
+    - name: Write health service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/aizoon-health.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Aizoon HTTPS health metric
+          After=network-online.target docker.service
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 /opt/aizoon/https-health.py
+    - name: Write health timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/aizoon-health.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Check Aizoon HTTPS every minute
+          [Timer]
+          OnBootSec=60
+          OnUnitActiveSec=60
+          [Install]
+          WantedBy=timers.target
+    - name: Enable health checks
+      ansible.builtin.systemd:
+        name: aizoon-health.timer
+        daemon_reload: true
+        enabled: true
+        state: started
+    - name: Verify HTTPS with the lab CA and publish a metric
+      ansible.builtin.command: /usr/bin/python3 /opt/aizoon/https-health.py
+      register: health
+      failed_when: "'HTTPSAvailable=1' not in health.stdout"

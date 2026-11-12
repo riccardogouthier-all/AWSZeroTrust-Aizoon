@@ -1,0 +1,19 @@
+- name: Collect ModSecurity audit transactions
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Add audit log input
+      ansible.builtin.blockinfile:
+        path: /var/ossec/etc/ossec.conf
+        insertbefore: '</ossec_config>'
+        marker: '<!-- {mark} AIZOON MODSEC AUDIT -->'
+        block: |
+          <localfile>
+            <log_format>json</log_format>
+            <location>/opt/aizoon/logs/modsec_audit.log</location>
+          </localfile>
+    - name: Restart log collection
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        state: restarted

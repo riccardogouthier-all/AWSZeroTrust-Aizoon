@@ -1,0 +1,101 @@
+- name: Configure public TLS WAF
+  hosts: localhost
+  connection: local
+  become: true
+  tasks:
+    - name: Install Docker and TLS tools
+      ansible.builtin.apt:
+        name: [docker.io, openssl]
+        state: present
+        update_cache: true
+    - name: Enable Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+    - name: Create private configuration directory
+      ansible.builtin.file:
+        path: /opt/aizoon
+        state: directory
+        mode: '0700'
+    - name: Create TLS directory
+      ansible.builtin.file:
+        path: /opt/aizoon/tls
+        state: directory
+        mode: '0700'
+    - name: Create log directory for the unprivileged nginx container
+      ansible.builtin.file:
+        path: /opt/aizoon/logs
+        state: directory
+        owner: '101'
+        group: '101'
+        mode: '0755'
+    - name: Generate private lab CA and IP certificate
+      ansible.builtin.shell: |
+        set -euo pipefail
+        umask 077
+        cd /opt/aizoon/tls
+        openssl req -x509 -newkey rsa:3072 -nodes -days 30 \
+          -keyout lab-ca.key -out lab-ca.crt -subj '/CN=Aizoon Private Learner Lab CA' \
+          -addext 'basicConstraints=critical,CA:TRUE' -addext 'keyUsage=critical,keyCertSign,cRLSign'
+        openssl req -new -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj '/CN=LAB_WAF_IP'
+        printf 'subjectAltName=IP:LAB_WAF_IP\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n' > server.ext
+        openssl x509 -req -in server.csr -CA lab-ca.crt -CAkey lab-ca.key -CAcreateserial \
+          -out server.crt -days 30 -sha256 -extfile server.ext
+        chmod 644 server.crt server.key lab-ca.crt
+      args:
+        executable: /bin/bash
+        creates: /opt/aizoon/tls/server.crt
+    - name: Configure WAF environment
+      ansible.builtin.copy:
+        dest: /opt/aizoon/waf.env
+        mode: '0600'
+        content: |
+          BACKEND=http://LAB_WEB_IP:3000
+          SERVER_NAME=LAB_WAF_IP
+          SSL_PORT=8443
+          MODSEC_RULE_ENGINE=DetectionOnly
+          MODSEC_AUDIT_ENGINE=RelevantOnly
+          MODSEC_AUDIT_LOG=/var/log/nginx/modsec_audit.log
+          MODSEC_AUDIT_LOG_FORMAT=JSON
+          ACCESSLOG=/var/log/nginx/access.log
+          ERRORLOG=/var/log/nginx/error.log
+          NGINX_X_FORWARDED_PORT=443
+          NGINX_X_FORWARDED_PROTO=https
+      notify: Recreate WAF with current configuration
+    - name: Write WAF start script
+      ansible.builtin.copy:
+        dest: /opt/aizoon/start-waf.sh
+        mode: '0700'
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+          if [ ! -s /opt/aizoon/waf-image ]; then
+            docker pull LAB_WAF_IMAGE
+            docker image inspect LAB_WAF_IMAGE --format '{{ '{{' }}index .RepoDigests 0{{ '}}' }}' > /opt/aizoon/waf-image
+          fi
+          if ! docker inspect aizoon-waf >/dev/null 2>&1; then
+            docker run -d --name aizoon-waf --restart unless-stopped \
+              --log-opt max-size=10m --log-opt max-file=3 \
+              --env-file /opt/aizoon/waf.env -p 443:8443 \
+              -v /opt/aizoon/tls/server.crt:/etc/nginx/conf/server.crt:ro \
+              -v /opt/aizoon/tls/server.key:/etc/nginx/conf/server.key:ro \
+              -v /opt/aizoon/logs:/var/log/nginx \
+              "$(cat /opt/aizoon/waf-image)"
+          fi
+    - name: Start WAF
+      ansible.builtin.command: /opt/aizoon/start-waf.sh
+    - name: Write explicit WAF mode switch
+      ansible.builtin.copy:
+        dest: /opt/aizoon/set-waf-mode.sh
+        mode: '0700'
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+          case "${1:-}" in On|DetectionOnly) ;; *) echo 'Use On or DetectionOnly' >&2; exit 2;; esac
+          sed -i "s/^MODSEC_RULE_ENGINE=.*/MODSEC_RULE_ENGINE=$1/" /opt/aizoon/waf.env
+          docker rm -f aizoon-waf
+          /opt/aizoon/start-waf.sh
+  handlers:
+    - name: Recreate WAF with current configuration
+      ansible.builtin.shell: docker rm -f aizoon-waf && /opt/aizoon/start-waf.sh

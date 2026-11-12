@@ -1,0 +1,9 @@
+{
+  "State": "COMPLETED",
+  "PercentDone": "100.0",
+  "ResourceType": "EC2",
+  "CreationDate": "2026-11-12 17:05:09.004000+01:00",
+  "CompletionDate": "2026-11-12 17:21:27.205000+01:00",
+  "BackupSizeInBytes": 21474836480,
+  "RecoveryPointArn": "arn:aws:ec2:us-east-1::image/<ami_ID>"
+}

@@ -1,0 +1,9 @@
+{
+  "443": "reachable",
+  "22": "not reachable from tester",
+  "3000": "not reachable from tester",
+  "1514": "not reachable from tester",
+  "1515": "not reachable from tester",
+  "9200": "not reachable from tester",
+  "55000": "not reachable from tester"
+}
