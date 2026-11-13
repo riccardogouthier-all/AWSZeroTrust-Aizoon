@@ -1,0 +1,53 @@
+---
+- name: Verifica destinazioni e prerequisiti comuni
+  hosts: siem:web:waf
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Richiedi una sola VM distinta per ruolo
+      ansible.builtin.assert:
+        that:
+          - groups.get('siem', []) | length == 1
+          - groups.get('web', []) | length == 1
+          - groups.get('waf', []) | length == 1
+          - (groups.siem + groups.web + groups.waf) | unique | length == 3
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '24.04'
+          - ansible_facts.architecture == 'x86_64'
+          - bt_private_ip is defined
+          - bt_wazuh_version is match('^4[.]14[.][0-9]+$')
+    - name: Verifica l'orologio per TLS e correlazione
+      ansible.builtin.command: timedatectl show --property=NTPSynchronized --value
+      register: ntp
+      changed_when: false
+      failed_when: ntp.stdout | trim != 'yes'
+
+- name: Installa e verifica il SIEM
+  hosts: siem
+  become: true
+  any_errors_fatal: true
+  roles: [siem]
+
+- name: Verifica il servizio WEB predisposto dal Cloud Team
+  hosts: web
+  any_errors_fatal: true
+  tasks:
+    - name: Richiedi la pagina iniziale dal nodo privato
+      ansible.builtin.uri:
+        url: "http://{{ bt_private_ip }}:3000/"
+        status_code: 200
+        return_content: true
+        use_proxy: false
+      register: juice
+      failed_when: "'juice shop' not in (juice.content | default('') | lower)"
+
+- name: Configura il reverse proxy
+  hosts: waf
+  become: true
+  any_errors_fatal: true
+  roles: [waf]
+
+- name: Collega i due agenti
+  hosts: waf:web
+  become: true
+  roles: [agents]

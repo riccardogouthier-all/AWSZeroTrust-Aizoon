@@ -1,0 +1,15 @@
+---
+# Tre VM Ubuntu 24.04 dedicate su rete host-only. Adeguare agli IP delle VM.
+all:
+  vars:
+    ansible_user: ubuntu
+  children:
+    siem:
+      hosts:
+        lab-siem: {ansible_host: 192.168.56.13, bt_private_ip: 192.168.56.13}
+    web:
+      hosts:
+        lab-web: {ansible_host: 192.168.56.12, bt_private_ip: 192.168.56.12}
+    waf:
+      hosts:
+        lab-waf: {ansible_host: 192.168.56.11, bt_private_ip: 192.168.56.11}

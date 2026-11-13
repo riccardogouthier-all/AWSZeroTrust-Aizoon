@@ -1,0 +1,10 @@
+---
+# Solo per EC2 dedicate ad Ansible: BT_BUCKET identifica il bucket di scambio del controller.
+ansible_aws_ssm_region: eu-west-1
+ansible_aws_ssm_bucket_name: "{{ lookup('ansible.builtin.env', 'BT_BUCKET') }}"
+# IP effettivamente usato dal client per TLS. Su AWS usare l'EIP del WAF.
+bt_tls_ip: "192.168.56.11"
+bt_wazuh_version: "4.14.10"
+bt_installer_sha256: ""  # impronta del file ufficiale esaminato
+bt_archive_events: false  # finestra di collaudo: true, poi false
+bt_web_container: juice-shop

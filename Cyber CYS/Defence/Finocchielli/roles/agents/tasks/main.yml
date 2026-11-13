@@ -1,0 +1,81 @@
+---
+- name: Verifica identità del manager e porta eventi
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[groups.siem[0]].bt_private_ip }}"
+    port: "{{ item }}"
+    timeout: 15
+  loop: [1514, 1515]
+
+- name: Leggi i pacchetti installati
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Verifica la compatibilità prima di installare o adottare un agente
+  ansible.builtin.assert:
+    that:
+      - "'wazuh-manager' not in ansible_facts.packages"
+      - "'wazuh-agent' not in ansible_facts.packages or ansible_facts.packages['wazuh-agent'][0].version == bt_wazuh_version + '-1'"
+    fail_msg: "Allineare la versione con il manager tramite la procedura di aggiornamento."
+
+- name: Installa l'agente dalla distribuzione ufficiale
+  when: "'wazuh-agent' not in ansible_facts.packages"
+  vars:
+    bt_deb: "wazuh-agent_{{ bt_wazuh_version }}-1_amd64.deb"
+  block:
+    - name: Scarica il deb per amd64 con il checksum pubblicato da Wazuh
+      ansible.builtin.get_url:
+        url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/{{ bt_deb }}"
+        checksum: "sha512:https://packages.wazuh.com/4.x/checksums/wazuh/{{ bt_wazuh_version }}/{{ bt_deb }}.sha512"
+        dest: "/var/cache/apt/archives/{{ bt_deb }}"
+        mode: '0644'
+    - name: Configura destinazione e nome per l'enrollment iniziale
+      ansible.builtin.apt:
+        deb: "/var/cache/apt/archives/{{ bt_deb }}"
+        policy_rc_d: 101
+      environment:
+        WAZUH_MANAGER: "{{ hostvars[groups.siem[0]].bt_private_ip }}"
+        WAZUH_REGISTRATION_SERVER: "{{ hostvars[groups.siem[0]].bt_private_ip }}"
+        WAZUH_AGENT_NAME: "{{ 'waf' if inventory_hostname in groups.waf else 'web' }}"
+
+- name: Leggi la configurazione effettiva dell'agente
+  ansible.builtin.slurp:
+    src: /var/ossec/etc/ossec.conf
+  register: bt_ossec
+  no_log: true
+
+- name: Richiedi il manager previsto prima di aggiungere sorgenti
+  ansible.builtin.assert:
+    that: "('<address>' + hostvars[groups.siem[0]].bt_private_ip + '</address>') in (bt_ossec.content | b64decode)"
+    fail_msg: "Agente associato a un altro manager. Verificare migrazione e identità prima di procedere."
+
+- name: Verifica il file log del solo container Juice Shop
+  when: inventory_hostname in groups.web
+  ansible.builtin.command:
+    argv: [docker, inspect, --format, "{{ '{{.HostConfig.LogConfig.Type}} {{.LogPath}}' }}", "{{ bt_web_container }}"]
+  register: bt_docker_log
+  changed_when: false
+  failed_when: bt_docker_log.rc != 0 or not (bt_docker_log.stdout is match('^json-file /[-a-zA-Z0-9_./]+-json[.]log$'))
+
+- name: Configura le sorgenti di log specifiche del ruolo
+  ansible.builtin.blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    insertbefore: '</ossec_config>'
+    marker: '<!-- {mark} BLUE TEAM INPUTS -->'
+    block: "{{ lookup('ansible.builtin.template', 'inputs.xml.j2') }}"
+    backup: true
+  notify: Ricarica agente
+
+- name: Verifica il lettore dei log prima di riavviare
+  ansible.builtin.command: /var/ossec/bin/wazuh-logcollector -t
+  changed_when: false
+
+- name: Impedisci upgrade isolati dell'agente
+  ansible.builtin.dpkg_selections:
+    name: wazuh-agent
+    selection: hold
+
+- name: Abilita l'agente
+  ansible.builtin.systemd_service:
+    name: wazuh-agent
+    state: started
+    enabled: true
