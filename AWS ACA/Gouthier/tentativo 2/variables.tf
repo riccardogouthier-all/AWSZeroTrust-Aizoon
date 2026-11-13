@@ -28,6 +28,7 @@ variable "backup_role_name" {
 }
 
 variable "tester_ipv4_cidrs" {
+  default     = ["0.0.0.0/0"]
   description = "CIDR IPv4 autorizzati a raggiungere HTTPS (443) del WAF. 0.0.0.0/0 = pubblico."
   type        = set(string)
 
