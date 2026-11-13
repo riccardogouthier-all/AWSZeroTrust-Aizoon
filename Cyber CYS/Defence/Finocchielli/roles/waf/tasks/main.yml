@@ -1,0 +1,131 @@
+---
+- name: Installa Docker e i moduli Python del nodo WAF
+  ansible.builtin.apt:
+    name: [docker.io, python3-requests, python3-cryptography, logrotate]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Avvia Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Prepara directory di configurazione e log del container
+  ansible.builtin.file:
+    path: "/opt/blue-team/{{ item.dir }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {dir: tls, owner: root, group: root, mode: '0700'}
+    - {dir: rules, owner: root, group: root, mode: '0755'}
+    - {dir: logs, owner: '101', group: adm, mode: '2750'}
+
+- name: Genera la chiave TLS del laboratorio sul nodo WAF
+  community.crypto.openssl_privatekey:
+    path: /opt/blue-team/tls/server.key
+    size: 3072
+    group: '101'
+    mode: '0640'
+
+- name: Definisci SAN e uso del certificato server
+  community.crypto.openssl_csr:
+    path: /opt/blue-team/tls/server.csr
+    privatekey_path: /opt/blue-team/tls/server.key
+    common_name: "{{ bt_tls_ip }}"
+    subject_alt_name: ["IP:{{ bt_tls_ip }}"]
+    extended_key_usage: [serverAuth]
+    basic_constraints: ["CA:FALSE"]
+
+- name: Genera il certificato server del laboratorio
+  community.crypto.x509_certificate:
+    path: /opt/blue-team/tls/server.crt
+    csr_path: /opt/blue-team/tls/server.csr
+    privatekey_path: /opt/blue-team/tls/server.key
+    provider: selfsigned
+    selfsigned_not_after: "+30d"
+    mode: '0644'
+
+- name: Copia la sola parte pubblica sul controller
+  ansible.builtin.fetch:
+    src: /opt/blue-team/tls/server.crt
+    dest: "{{ playbook_dir }}/runtime/waf.crt"
+    flat: true
+
+- name: Distribuisci la regola di collaudo
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/files/REQUEST-900-BLUE-TEAM.conf"
+    dest: /opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf
+    mode: '0644'
+
+- name: Rileva i contenuti effettivi dei file montati
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - /opt/blue-team/tls/server.crt
+    - /opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf
+  register: bt_mount_files
+
+- name: Carica il digest WAF dal lock file del progetto
+  ansible.builtin.set_fact:
+    bt_waf_image_ref: "{{ bt_waf_image | default((lookup('ansible.builtin.file', playbook_dir + '/../../../AWS ACA/Agosta/laboratorio_aws_2.0/images.lock.json') | from_json).waf) }}"
+
+- name: Controlla il riferimento immutabile
+  ansible.builtin.assert:
+    that: bt_waf_image_ref is match('^owasp/modsecurity-crs@sha256:[0-9a-f]{64}$')
+
+- name: Avvia il proxy TLS in DetectionOnly
+  community.docker.docker_container:
+    name: blue-team-waf
+    image: "{{ bt_waf_image_ref }}"
+    state: started
+    restart_policy: unless-stopped
+    labels:
+      blue-team.cert: "{{ bt_mount_files.results[0].stat.checksum }}"
+      blue-team.rule: "{{ bt_mount_files.results[1].stat.checksum }}"
+    env:
+      BACKEND: "http://{{ hostvars[groups.web[0]].bt_private_ip }}:3000"
+      SSL_PORT: '8443'
+      MODSEC_RULE_ENGINE: DetectionOnly
+      MODSEC_AUDIT_ENGINE: RelevantOnly
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      MODSEC_AUDIT_LOG_PARTS: AHZ
+      MODSEC_AUDIT_LOG: /var/log/nginx/modsec_audit.log
+      ACCESSLOG: /var/log/nginx/access.log
+      ERRORLOG: /var/log/nginx/error.log
+      NGINX_X_FORWARDED_PORT: '443'
+      NGINX_X_FORWARDED_PROTO: https
+    published_ports: ["{{ bt_private_ip }}:443:8443"]
+    volumes:
+      - /opt/blue-team/tls/server.crt:/etc/nginx/conf/server.crt:ro
+      - /opt/blue-team/tls/server.key:/etc/nginx/conf/server.key:ro
+      - /opt/blue-team/logs:/var/log/nginx
+      - /opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-BLUE-TEAM.conf:ro
+    log_driver: json-file
+    log_options: {max-size: "5m", max-file: "2"}
+
+- name: Verifica la configurazione Nginx e il caricamento del ruleset
+  ansible.builtin.command: docker exec blue-team-waf nginx -t
+  changed_when: false
+
+- name: Limita l'occupazione dei log WAF locali
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/blue-team-waf
+    mode: '0644'
+    content: |
+      /opt/blue-team/logs/*.log {
+          su root adm
+          daily
+          maxsize 20M
+          rotate 4
+          missingok
+          notifempty
+          compress
+          delaycompress
+          copytruncate
+      }

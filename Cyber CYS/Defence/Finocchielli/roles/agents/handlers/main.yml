@@ -1,0 +1,5 @@
+---
+- name: Ricarica agente
+  ansible.builtin.systemd_service:
+    name: wazuh-agent
+    state: restarted

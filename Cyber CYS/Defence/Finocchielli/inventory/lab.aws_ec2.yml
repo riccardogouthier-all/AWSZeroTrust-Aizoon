@@ -1,0 +1,19 @@
+---
+# Esempio per VM dedicate al profilo Ansible, con tag separati dal tentativo 2.
+plugin: amazon.aws.aws_ec2
+regions: [eu-west-1]
+filters:
+  instance-state-name: running
+  tag:Project: lab-integrato
+  tag:Environment: lab
+  tag:Role: [siem, web, waf]
+hostnames: [instance-id]
+keyed_groups:
+  - key: tags.Role
+    prefix: ""
+    separator: ""
+compose:
+  bt_private_ip: private_ip_address
+  ansible_connection: "'amazon.aws.aws_ssm'"
+  ansible_aws_ssm_instance_id: instance_id
+strict: true

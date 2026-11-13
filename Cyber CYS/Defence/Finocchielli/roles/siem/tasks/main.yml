@@ -1,0 +1,81 @@
+---
+- name: Inventario dei pacchetti Wazuh
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Identifica una installazione centrale completa
+  ansible.builtin.set_fact:
+    bt_central_pkgs: "{{ ['wazuh-manager', 'wazuh-indexer', 'wazuh-dashboard', 'filebeat'] | intersect(ansible_facts.packages.keys() | list) }}"
+
+- name: Rileva installazioni parziali o patch incompatibili prima delle modifiche
+  ansible.builtin.assert:
+    that:
+      - bt_central_pkgs | length in [0, 4]
+      - "'wazuh-agent' not in ansible_facts.packages"
+      - bt_central_pkgs | length == 0 or (ansible_facts.packages[item][0].version.split('-')[0] == bt_wazuh_version)
+    fail_msg: "Esaminare installazione o upgrade del SIEM prima di riprendere il play."
+  loop: [wazuh-manager, wazuh-indexer, wazuh-dashboard]
+
+- name: Installa lo stack ufficiale su nodo dedicato
+  when: bt_central_pkgs | length == 0
+  block:
+    - name: Richiedi il digest del programma di installazione revisionato
+      ansible.builtin.assert:
+        that: bt_installer_sha256 is match('^[a-fA-F0-9]{64}$')
+    - name: Prepara la cartella privata del bootstrap
+      ansible.builtin.file:
+        path: /root/blue-team-wazuh
+        state: directory
+        mode: '0700'
+    - name: Scarica il programma ufficiale verificato
+      ansible.builtin.get_url:
+        url: https://packages.wazuh.com/4.14/wazuh-install.sh
+        dest: /root/blue-team-wazuh/wazuh-install.sh
+        checksum: "sha256:{{ bt_installer_sha256 }}"
+        mode: '0700'
+    - name: Esegui il bootstrap senza esporre password nell'output SSM
+      ansible.builtin.shell: |
+        umask 077
+        bash ./wazuh-install.sh -a > install.log 2>&1
+      args:
+        chdir: /root/blue-team-wazuh
+      no_log: true
+
+- name: Controlla la patch realmente installata dal bootstrap
+  ansible.builtin.command:
+    argv: [dpkg-query, -W, '-f=${Version}', "{{ item }}"]
+    expand_argument_vars: false
+  loop: [wazuh-manager, wazuh-indexer, wazuh-dashboard]
+  register: central_version
+  changed_when: false
+  failed_when: central_version.rc != 0 or central_version.stdout.split('-')[0] != bt_wazuh_version
+
+- name: Evita aggiornamenti asincroni dei componenti
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: [wazuh-manager, wazuh-indexer, wazuh-dashboard, filebeat]
+
+- name: Imposta la finestra di archiviazione degli eventi grezzi
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '<logall_json>(?:no|yes)</logall_json>'
+    replace: "<logall_json>{{ 'yes' if bt_archive_events | bool else 'no' }}</logall_json>"
+    backup: true
+  notify: Ricarica manager
+
+- name: Conferma la direttiva di archiviazione effettiva
+  ansible.builtin.command:
+    argv: [grep, -Fq, "--", "<logall_json>{{ 'yes' if bt_archive_events | bool else 'no' }}</logall_json>", /var/ossec/etc/ossec.conf]
+  changed_when: false
+
+- name: Verifica configurazione del manager
+  ansible.builtin.command: /var/ossec/bin/wazuh-analysisd -t
+  changed_when: false
+
+- name: Mantieni lo stack attivo
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: [wazuh-indexer, wazuh-manager, filebeat, wazuh-dashboard]

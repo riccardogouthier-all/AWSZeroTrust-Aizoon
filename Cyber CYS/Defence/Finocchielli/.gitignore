@@ -1,0 +1,8 @@
+runtime/
+*.retry
+__pycache__/
+inventory/private*
+*.key
+*.pem
+*.p12
+.env

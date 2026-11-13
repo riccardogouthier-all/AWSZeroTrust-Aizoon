@@ -1,0 +1,75 @@
+---
+- name: Cerca nel WAF la transazione appena inviata
+  hosts: waf
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Controlla il formato dell'identificatore prima di usarlo da remoto
+      ansible.builtin.assert:
+        that: bt_probe is match('^bt-[0-9a-f]{32}$')
+    - name: Verifica regola, motore, CRS, risposta e identificatore WAF
+      ansible.builtin.script:
+        cmd: "tools/check_evidence.py /opt/blue-team/logs/modsec_audit.log {{ bt_probe }}"
+        executable: /usr/bin/python3
+      register: bt_waf_evidence
+      changed_when: false
+      until: bt_waf_evidence.rc == 0
+      retries: 5
+      delay: 2
+
+- name: Cerca la stessa transazione sul manager
+  hosts: siem
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Verifica l'identificatore anche per un avvio limitato al SIEM
+      ansible.builtin.assert:
+        that: bt_probe is match('^bt-[0-9a-f]{32}$')
+    - name: Cerca l'audit arrivato tramite l'agente WAF
+      ansible.builtin.script:
+        cmd: "tools/check_evidence.py /var/ossec/logs/archives/archives.json {{ bt_probe }} --manager"
+        executable: /usr/bin/python3
+      register: bt_manager_evidence
+      changed_when: false
+      until: bt_manager_evidence.rc == 0
+      retries: 10
+      delay: 3
+
+    - name: Richiedi anche la riga access.log da quello stesso agente
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import json, sys
+            marker = sys.argv[1]
+            with open('/var/ossec/logs/archives/archives.json') as stream:
+                for line in stream:
+                    if marker in line:
+                        record = json.loads(line)
+                        if (record.get('agent', {}).get('name') == 'waf'
+                                and record.get('location') == '/opt/blue-team/logs/access.log'
+                                and 'bt_probe=' + marker in record.get('full_log', '')):
+                            sys.exit(0)
+            sys.exit(1)
+          - "{{ bt_probe }}"
+      register: bt_access_check
+      changed_when: false
+      until: bt_access_check.rc == 0
+      retries: 5
+      delay: 2
+
+    - name: Confronta gli ID e restituisci solo i campi per le evidenze
+      vars:
+        local_tx: "{{ hostvars[groups.waf[0]].bt_waf_evidence.stdout | from_json }}"
+        manager_tx: "{{ bt_manager_evidence.stdout | from_json }}"
+      ansible.builtin.assert:
+        that: local_tx.transaction_id == manager_tx.transaction_id
+        success_msg: "{{ manager_tx }}"
+
+    - name: Leggi gli agenti collegati ora
+      ansible.builtin.command: /var/ossec/bin/agent_control -lc
+      register: bt_active
+      changed_when: false
+      failed_when: "bt_active.rc != 0 or ('Name: waf,' not in bt_active.stdout) or ('Name: web,' not in bt_active.stdout)"

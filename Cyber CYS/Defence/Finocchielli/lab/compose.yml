@@ -1,0 +1,32 @@
+---
+name: aizoon-blue-local
+services:
+  web:
+    image: "${BT_WEB_IMAGE:?esportare il digest Juice Shop da images.lock.json}"
+    networks: [lab]
+    logging: &log_limits
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+  waf:
+    image: "${BT_WAF_IMAGE:?esportare il digest WAF da images.lock.json}"
+    depends_on: [web]
+    ports: ["127.0.0.1:8088:8080"]
+    environment:
+      BACKEND: http://web:3000
+      MODSEC_RULE_ENGINE: DetectionOnly
+      MODSEC_AUDIT_ENGINE: RelevantOnly
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      MODSEC_AUDIT_LOG_PARTS: AHZ
+      MODSEC_AUDIT_LOG: /var/log/nginx/modsec_audit.log
+      ACCESSLOG: /var/log/nginx/access.log
+      ERRORLOG: /var/log/nginx/error.log
+      NGINX_ALWAYS_TLS_REDIRECT: "off"
+    volumes:
+      - ../runtime/logs:/var/log/nginx
+      - ../files/REQUEST-900-BLUE-TEAM.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-BLUE-TEAM.conf:ro
+    networks: [frontend, lab]
+    logging: *log_limits
+networks:
+  frontend: {}
+  lab: {internal: true}
