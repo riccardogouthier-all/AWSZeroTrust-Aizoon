@@ -1,0 +1,25 @@
+{
+  "waf": {
+    "bt_probe": "bt-fa7b0130b448488ba8ec286656026451",
+    "transaction_id": "17945831688.770935",
+    "http": 200,
+    "mode": "DetectionOnly",
+    "rule_id": 10001,
+    "crs": [
+      "OWASP_CRS/4.30.0\""
+    ],
+    "source": "waf"
+  },
+  "siem": {
+    "bt_probe": "bt-fa7b0130b448488ba8ec286656026451",
+    "transaction_id": "17945831688.770935",
+    "http": 200,
+    "mode": "DetectionOnly",
+    "rule_id": 10001,
+    "crs": [
+      "OWASP_CRS/4.30.0\""
+    ],
+    "source": "manager"
+  },
+  "access_log_received": true
+}

@@ -1,0 +1,13 @@
+private/
+evidence/
+__pycache__/
+**/__pycache__/
+**/.terraform/
+**/*.tfstate*
+**/*.tfplan
+project/terraform.tfvars
+project/terraform.tfvars.json
+*.key
+*.pem
+*.crt
+*.zip

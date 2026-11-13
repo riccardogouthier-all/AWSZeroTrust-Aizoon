@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-13",
+  "terraform": "1.13.5",
+  "provider_aws": "6.73.0",
+  "terraform_init": "PASS (cache locale, lockfile invariato)",
+  "terraform_validate": "PASS",
+  "operator_unit_tests": 3,
+  "cyber_fixture_tests": 6,
+  "adapter_payloads_syntax_checked": 7,
+  "cloud_init_scripts_bash_n": 6,
+  "credentials_included": false,
+  "state_included": false,
+  "fresh_deploy_of_git_package": false
+}
