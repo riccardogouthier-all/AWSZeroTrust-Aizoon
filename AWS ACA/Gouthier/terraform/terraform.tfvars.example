@@ -1,4 +1,0 @@
-# Copiare in terraform.tfvars (ignorato da git) e adattare.
-allowed_cidrs = ["203.0.113.10/32"] # il tuo IP pubblico
-# budget_email = "nome@example.com"
-# budget_usd   = 80
