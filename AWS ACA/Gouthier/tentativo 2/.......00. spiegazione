@@ -1,0 +1,29 @@
+Ho letto il progetto Agosta. Scrivo ora i file Terraform: la configurazione Ansible diventa script `user_data`.
+
+Validate Terraform OK. Controllo sintassi bash con Git Bash, e nessun CRLF.
+
+Ho scritto il progetto Terraform in `AWS ACA/Gouthier/tentativo 2`. `terraform validate` e `bash -n` passano. Non ho fatto plan né apply, perché servono le credenziali del Learner Lab.
+
+**Cosa ho fatto:** il progetto di Agosta aveva già un `main.tf`. Python e YAML servivano per due cose:
+- **Setup:** `bootstrap.py` creava i bucket.
+- **Configurazione VM:** i playbook Ansible venivano lanciati via SSM.
+
+Qui entrambe finiscono in Terraform. I playbook diventano gli script bash `scripts/*.sh`, passati come `user_data` cloud-init alle tre EC2.
+
+**File principali:**
+- `versions.tf`, `variables.tf`, `outputs.tf`
+- `network.tf`, `security.tf`, `compute.tf`, `storage.tf`, `monitoring.tf`
+- `scripts/` con `common`, `web`, `waf`, `waf-health`, `siem` e `agent`
+- `README.md`, `terraform.tfvars.example`, `.gitignore`, `.gitattributes`
+
+**Scelte e limiti da conoscere:**
+- **IP fissi:** gli host hanno IP privati fissi, così gli script conoscono già gli indirizzi senza cicli di dipendenza.
+- **IP del WAF:** l'EIP del WAF è allocato prima dell'istanza, per metterlo nel certificato TLS.
+- **Bucket log:** il Learner Lab nega `GetBucketObjectLockConfiguration` richiesta da `aws_s3_bucket`. Il bucket si crea quindi con `aws s3api create-bucket` dentro `terraform_data`, e serve AWS CLI nel PATH. Fuori dal Lab si imposta `logs_bucket_via_cli = false`.
+- **Tempi:** dopo `apply` Wazuh ha bisogno di circa 15-25 minuti. Gli agent su web e WAF attendono il SIEM.
+- **Errori negli script:** se uno script fallisce, `apply` non lo segnala. Si controlla con `cloud-init status` sulle VM.
+- **Test:** ho tolto i test browser, WAF e backup di Agosta.
+- **State:** è locale, senza bootstrap del backend.
+- **Modifiche agli script:** cambiare uno script ricrea l'istanza.
+
+Gli script bash non sono stati eseguiti: li ho controllati solo per sintassi. Il primo deploy reale potrebbe richiedere aggiustamenti, soprattutto su Wazuh e sull'installazione dell'agent.

@@ -1,0 +1,5 @@
+region            = "us-east-1"
+project           = "lab-integrato-v2"
+instance_profile  = "LabInstanceProfile"
+backup_role_name  = "LabRole"
+tester_ipv4_cidrs = ["0.0.0.0/0"] # sostituire con gli IP autorizzati per un ambiente riservato
