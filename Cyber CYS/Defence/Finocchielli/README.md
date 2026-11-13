@@ -1,15 +1,13 @@
-# Blue Team · WAF e SIEM
+# Blue Team — WAF / SIEM
 
-Controlli AWS sul secondo tentativo Gouthier e laboratorio ripetibile su Kali. Nel laboratorio Finocchielli il primo traguardo è ottenere la stessa transazione su Juice Shop, nell’audit di ModSecurity e nell’archivio del manager Wazuh. La regola locale 10001 riconosce soltanto una sonda sintetica. La risposta attesa è HTTP 200.
+Stack: nginx + ModSecurity/CRS, Juice Shop, Wazuh 4.14.10. Obiettivo di integrazione: stesso marker e transaction ID nell'audit WAF e nell'archivio manager; regola 10001, HTTP 200 in DetectionOnly.
 
-| Per iniziare | Dove |
+| Documento | Contenuto |
 |---|---|
-| Presentare al team il lavoro svolto e la prossima demo | [Spiegazione del lavoro Blue Team](SPIEGAZIONE-TEAM.md) |
-| Stato della repo, differenze fra i due progetti AWS, commit e dipendenze | [Audit del 13 novembre](AUDIT.md) |
-| Eseguire il WAF su Kali, preparare le VM, installare, collaudare e ripristinare | [Manuale operativo](RUNBOOK.md) |
-| Applicare i ruoli siem, waf, agents | [Playbook principale](site.yml) |
-| Correlare access log, audit locale, archivio centrale e stato degli agenti | [Collaudo Ansible](verify.yml) |
-| Controllare i parametri prima del deploy | [Esempio impostazioni](settings.example.yml) |
-| Verifiche eseguite e prove da completare | [Registro di validazione](VALIDAZIONE.md) |
+| [Accessi 3.1](../ACCESSO_BLUE_TEAM_v3.1.md) | AWS, Wazuh e ruolo operativo |
+| [Runbook](RUNBOOK.md) | Stack esistente, Compose locale, Ansible su VM dedicate |
+| [Flussi](SPIEGAZIONE-TEAM.md) | Log, correlazione e distinzione archivi/alert |
+| [Compatibilità](AUDIT.md) | Varianti Cloud e confini dei playbook |
+| [Validazione](VALIDAZIONE.md) | Prove eseguite e limiti |
 
-Il contributo vive in `Cyber CYS/Defence/Finocchielli/` ed è condiviso fra i componenti del gruppo. Il controller legge i digest già registrati da Agosta. Gouthier configura le tre VM tramite Terraform e cloud-init. Seguire la sezione 2 del manuale per verificare quel deploy; usare i ruoli Ansible su VM dedicate. Il Cloud Team gestisce sistema base, rete e backend WEB. Su un Learner Lab già configurato con Agosta usare la procedura di sola lettura nel manuale prima di decidere un’eventuale migrazione.
+Il codice Ansible è per VM Ubuntu dedicate. Sul laboratorio AWS già configurato usare l'adattatore [3.1](../../../AWS%20ACA/Agosta/v3.1/README.md): non avviare un secondo WAF sulla 443 né reinstallare il manager.

@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-13",
+  "terraform_source": "3b5066c",
+  "cyber_source": "169a747",
+  "iam_checks_passed": 34,
+  "mfa_enrollment_pending": true,
+  "aws_mfa_login_end_to_end_tested": false,
+  "wazuh_login_tested": true,
+  "wazuh_threat_hunting_loaded": true,
+  "browser_test_tls_bypass": true,
+  "cost_guard": {
+    "monthly_threshold_usd": 20,
+    "approval": "AUTOMATIC",
+    "status_at_test": "STANDBY",
+    "targets": 3,
+    "forced_shutdown_tested": false
+  },
+  "limits": [
+    "No full restore test",
+    "No stress test",
+    "No physical mobile devices",
+    "No fresh deployment from the Git package"
+  ]
+}

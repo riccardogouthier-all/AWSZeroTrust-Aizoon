@@ -1,0 +1,7 @@
+{
+  "detection_only_probe_status": 200,
+  "blocking_probe_status": 403,
+  "blocking_normal_page_status": 200,
+  "final_normal_page_status": 200,
+  "final_mode": "DetectionOnly"
+}

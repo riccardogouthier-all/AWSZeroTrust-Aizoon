@@ -1,14 +1,12 @@
-# Registro di validazione · 13 novembre 2026
+# Validazione Blue Team — 13 novembre 2026
 
-| Verifica | Esito osservato |
+| Perimetro | Esito |
 |---|---|
-| Base storica del primo audit | ZIP ufficiale con commento `90a1dca2b5f218f9b3af267c0d38604871bd3386`; tree Git dei 79 file identico a `021e7f6b9564ccf5d7fed620e63edc0c71cc9c74`. Oggetto commit verificato per SHA. Il clone HTTPS diretto ha fallito la risoluzione DNS; il checkout locale usa questa revisione come limite di una cronologia shallow. |
-| Sintassi dei file | 12 YAML letti con un parser YAML. Template Jinja renderizzato per WAF e WEB con variabili obbligatorie e analizzato come XML. Tre input WAF e un input WEB nell’output. |
-| Verificatori Python | Cinque test offline passati. Coprono risposta applicativa attesa, rifiuto di Burp e 403, identità dell’agente, provenienza, correlazione, modalità errata, CRS o regola assenti, righe parziali e marker diverso. Dati sintetici. |
-| Sesta prova HTTP su server locale | Connessione a loopback negata da Windows (10013). Il test riporta skip per questo errore specifico ed è ripetibile su Kali. |
-| Integrazione | Docker, Ansible eseguibile, Terraform e Checkov indisponibili su questo host. Nessuna esecuzione su AWS, dashboard, endpoint o account condivisi. Il parsing YAML non esercita i moduli Ansible. L’idempotenza runtime, la consegna Wazuh e la capacità del SIEM devono essere misurate sui target. |
-
-Per ripetere i test dal percorso Blue Team:
+| Contributo originale | 12 YAML parsati; template Jinja WAF/WEB validi come XML; tre input WAF, uno WEB |
+| Host originale Blue | Cinque test offline passati, HTTP loopback saltato per Windows 10013 |
+| Controller del deploy Cloud | Sei test fixture/HTTP passati; sonda reale 10001 correlata WAF/manager tramite adattatore |
+| Account personale | Due agenti Active; login Wazuh readonly e Threat Hunting verificati; nessun bootstrap Ansible completo su VM dedicate |
+| Limiti | Idempotenza runtime Ansible, carico intenso e nuova installazione dedicata non verificati |
 
 ```bash
 python3 -B -m unittest discover -s tests -v
@@ -17,6 +15,6 @@ ansible-playbook -i inventory/vm.example.yml site.yml -e @settings.example.yml -
 ansible-playbook -i inventory/vm.example.yml verify.yml --syntax-check
 ```
 
-Su Kali eseguire poi la prova Compose in [RUNBOOK.md](RUNBOOK.md). Su AWS raccogliere i risultati del secondo run Ansible, la sonda locale e centrale con ID coincidente, lo stato dei due agenti e il test dell’allowlist. Eseguire Checkov anche sul codice di questa PR e archiviare una copia sanitizzata del report per il corso. I risultati Checkov nel sottoprogetto Agosta appartengono al suo Terraform e alla sua prova storica.
+Sintassi YAML/XML non equivale all'esecuzione dei moduli. Il primo host Blue non disponeva di Docker/Ansible/Terraform/Checkov eseguibili; i risultati successivi dell'account personale non retroattestano quel run. [Evidenze Cloud](../../../AWS%20ACA/Agosta/v3.1/docs/evidenze/README.md).
 
-Al nuovo controllo il branch di lavoro è stato riallineato al commit pubblico `c00b9d9`. La guida Gouthier riporta propri controlli statici. Questa revisione Blue Team non ha eseguito un deploy AWS.
+Per un nuovo collaudo: cloud-init done, versioni allineate, NTP, agenti Active, marker con stesso transaction ID, traffico normale 200, test di blocco con rollback, controllo CPU/RAM/disco/latenza e secondo run Ansible sulle sole VM dedicate.
