@@ -43,8 +43,11 @@ Nel Learner Lab: **Start Lab** → **AWS Details** → **Show**. Copiare `aws_ac
 
 ```powershell
 cd "AWS ACA\Gouthier\tentativo 2"
+
 # solo se si usa un profilo diverso da default:
 $env:AWS_PROFILE = 'learner-lab'
+
+aws configure
 aws sts get-caller-identity
 aws iam get-instance-profile --instance-profile-name LabInstanceProfile
 aws iam get-role --role-name LabRole
