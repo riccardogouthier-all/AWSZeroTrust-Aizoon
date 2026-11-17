@@ -55,7 +55,7 @@
     dest: "{{ playbook_dir }}/runtime/waf.crt"
     flat: true
 
-- name: Distribuisci la regola di collaudo
+- name: Distribuisci la sonda e le regole sulle operazioni di Juice Shop
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/files/REQUEST-900-BLUE-TEAM.conf"
     dest: /opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf

@@ -69,6 +69,15 @@
     argv: [grep, -Fq, "--", "<logall_json>{{ 'yes' if bt_archive_events | bool else 'no' }}</logall_json>", /var/ossec/etc/ossec.conf]
   changed_when: false
 
+- name: Installa le classificazioni delle operazioni applicative e dei segnali CRS
+  ansible.builtin.copy:
+    src: blue_team_ctf.xml
+    dest: /var/ossec/etc/rules/blue_team_ctf.xml
+    owner: root
+    group: wazuh
+    mode: '0640'
+  notify: Ricarica manager
+
 - name: Verifica configurazione del manager
   ansible.builtin.command: /var/ossec/bin/wazuh-analysisd -t
   changed_when: false

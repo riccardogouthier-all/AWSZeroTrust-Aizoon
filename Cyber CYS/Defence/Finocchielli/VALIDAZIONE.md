@@ -18,3 +18,5 @@ ansible-playbook -i inventory/vm.example.yml verify.yml --syntax-check
 Sintassi YAML/XML non equivale all'esecuzione dei moduli. Il primo host Blue non disponeva di Docker/Ansible/Terraform/Checkov eseguibili; i risultati successivi dell'account personale non retroattestano quel run. [Evidenze Cloud](../../../AWS%20ACA/Agosta/v3.1/docs/evidenze/README.md).
 
 Per un nuovo collaudo: cloud-init done, versioni allineate, NTP, agenti Active, marker con stesso transaction ID, traffico normale 200, test di blocco con rollback, controllo CPU/RAM/disco/latenza e secondo run Ansible sulle sole VM dedicate.
+
+**Aggiornamento del 17 novembre 2026.** Verificati chiavi, nomi e flag Docker delle 118 voci sul catalogo estratto dal digest Linux/amd64 di progetto. Dieci test passati nella prova finale, incluso HTTP su loopback. Controllati i YAML dei ruoli WAF/SIEM e di Compose. Le fixture verificano ambito delle regole e classificazione degli eventi. Restano da collaudare i nuovi ID nei motori reali, il blocco in staging e gli esiti applicativi.

@@ -22,3 +22,5 @@ L'audit viene inoltrato come syslog con prefisso `bt_waf_audit`: evita i limiti 
 Baseline DetectionOnly. Prova asincrona: attacco → analisi → modifica → replay. Prova sincrona: Red invia traffico, Blue modifica WAF/SIEM tramite ruolo operativo. In entrambi i casi registrare timestamp UTC, marker, rule ID, esito e regressioni sul traffico normale.
 
 [Runbook](RUNBOOK.md) · [Difesa live](../../../AWS%20ACA/Agosta/v3.1/docs/DIFESA_LIVE.md).
+
+Per **Payback Time**, Blue cerca il match WAF 10015 e l’alert Wazuh 110217. WEB verifica separatamente che il checkout ricalcoli quantità e totale. Per **View Basket**, WEB verifica che due account fittizi vedano soltanto il proprio carrello. Per ciascuna prova il team registra sia il segnale osservato sia il risultato applicativo. [Difese per sfida](DIFESE-SFIDE.md) · [Matrice](sfide.csv).

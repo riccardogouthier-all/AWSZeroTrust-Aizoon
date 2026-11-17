@@ -4,6 +4,7 @@ Stack: nginx + ModSecurity/CRS, Juice Shop, Wazuh 4.14.10. Obiettivo di integraz
 
 | Documento | Contenuto |
 |---|---|
+| [Difese per sfida](DIFESE-SFIDE.md) · [Matrice](sfide.csv) | 118 criteri di verifica e regole WAF/SIEM per le operazioni coperte |
 | [Accessi 3.1](../ACCESSO_BLUE_TEAM_v3.1.md) | AWS, Wazuh e ruolo operativo |
 | [Runbook](RUNBOOK.md) | Stack esistente, Compose locale, Ansible su VM dedicate |
 | [Flussi](SPIEGAZIONE-TEAM.md) | Log, correlazione e distinzione archivi/alert |
