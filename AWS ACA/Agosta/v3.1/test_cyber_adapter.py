@@ -17,9 +17,18 @@ def main():
     with contextlib.redirect_stdout(io.StringIO()):
         runpy.run_path('update_cyber_rules.py', run_name='__main__')
     assert [role for role, _, _ in captured[-2:]] == ["siem", "waf"]
-    from update_cyber_rules import CLASSIFICATIONS, RULE, stage
-    assert stage("candidate", CLASSIFICATIONS) in full_siem
-    assert stage("candidate", CLASSIFICATIONS) in captured[-2][1]
+    from update_cyber_rules import AUDIT_CLASSIFICATIONS, RULE, stage
+    from xml.etree import ElementTree
+    import re
+    rules = ElementTree.fromstring(AUDIT_CLASSIFICATIONS).findall("rule")
+    for rule, waf_id in zip(rules, ("942100", "941100", "10011", "10012", "10013", "10014", "10015"), strict=True):
+        assert rule.findtext("if_sid") == "100100"
+        assert re.search(rule.findtext("location"), "/opt/blue-team/logs/modsec_audit.log")
+        assert re.search(rule.findtext("location"), "(waf) any->/opt/blue-team/logs/modsec_audit.log")
+        assert re.search(rule.findtext("match"), f'bt_waf_audit {{"ruleId":"{waf_id}"}}')
+        assert not re.search(rule.findtext("match"), f'bt_waf_audit {{"ruleId":"{waf_id}0"}}')
+    assert stage("candidate", AUDIT_CLASSIFICATIONS) in full_siem
+    assert stage("candidate", AUDIT_CLASSIFICATIONS) in captured[-2][1]
     assert stage("target", RULE) in captured[-1][1]
     assert 'logall_json' not in captured[-2][1]
     assert 'MODSEC_RULE_ENGINE=DetectionOnly' in captured[-1][1]

@@ -1,5 +1,6 @@
 """Update the defensive rules on the existing WAF and Wazuh manager."""
 import base64
+import re
 
 from ops import ROOT, send, wait
 
@@ -8,6 +9,14 @@ WAF_RULE = "/opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf"
 SIEM_RULE = "/var/ossec/etc/rules/blue_team_ctf.xml"
 RULE = (ROOT / "cyber/files/REQUEST-900-BLUE-TEAM.conf").read_text(encoding="utf-8-sig")
 CLASSIFICATIONS = (ROOT / "cyber/roles/siem/files/blue_team_ctf.xml").read_text(encoding="utf-8-sig")
+# This WAF emits detection events in the JSON audit stream, not nginx error.log.
+AUDIT_CLASSIFICATIONS = re.sub(
+    r'ModSecurity:\.\*\?\\\[id "([^"]+)"\\\]',
+    lambda match: r'[,{\s]"ruleId"\s*:\s*"?' + match[1] + r'"?(?=[,}\s])',
+    CLASSIFICATIONS.replace(r"^/opt/(?:blue-team|aizoon)/logs/error\.log$",
+                            r"(?:^|->)/opt/(?:blue-team|aizoon)/logs/modsec_audit\.log$")
+    .replace('    <location', '    <if_sid>100100</if_sid>\n    <location'),
+)
 
 
 def stage(variable, content):
@@ -21,7 +30,7 @@ previous="$backup/previous"
 candidate="$backup/candidate"
 if test -f "$target"; then cp -p "$target" "$previous"; fi
 trap 'rm -f "$candidate" "$previous"; rmdir "$backup"' EXIT
-''' + stage("candidate", CLASSIFICATIONS) + r'''
+''' + stage("candidate", AUDIT_CLASSIFICATIONS) + r'''
 grep_status=0
 duplicates=$(grep -Ern --include='*.xml' --exclude=blue_team_ctf.xml \
     "id[[:space:]]*=[[:space:]]*[\"']11021[1-7][\"']" \
