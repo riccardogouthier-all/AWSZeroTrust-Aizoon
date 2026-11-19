@@ -2,11 +2,12 @@
   "terraform_source_commit": "3b5066c",
   "cyber_source_commit": "169a747",
   "cyber_snapshot_sha256": {
-    "cyber/files/REQUEST-900-BLUE-TEAM.conf": "6b82a089584cd9f268a3c3ed7e59f33e8ffe011aea47d699a323a82e48ea799f",
+    "cyber/files/REQUEST-900-BLUE-TEAM.conf": "e4fa03bfb6cdcab99bdbe41ed0db9701f3f8125c40c5c9b031ecebd40c85ee11",
     "cyber/tests/test_telemetry.py": "5f572ad451e39ecea2197ad418fe296e27871bc33e17e38ffc3211255ed8888f",
     "cyber/tools/check_evidence.py": "c03231d54e96e680839cee3fa7e4611f3dd0c739744c5aea94df7ddcee7d21bb",
     "cyber/tools/probe.py": "1bad05cdd74a3924b3f2e816ab75129fe26a1bdbd7d3d6ba70a8418008bf1919",
-    "cyber/roles/agents/templates/inputs.xml.j2": "531327fd63a820bb9d39b8d719c791c25ab2d2353714f7d646a87b7993d6e8bb"
+    "cyber/roles/agents/templates/inputs.xml.j2": "531327fd63a820bb9d39b8d719c791c25ab2d2353714f7d646a87b7993d6e8bb",
+    "cyber/roles/siem/files/blue_team_ctf.xml": "7a6d1df77904ee844fc65cfd57a0298baf7b7d0b176740b9a550203cec4b05e6"
   },
   "publication_adaptations": [
     "Default personali e bucket Terraform ordinario",
@@ -20,5 +21,6 @@
   "fresh_git_package_deploy_tested": false,
   "text_newlines": "LF",
   "publication_version": "3.1",
-  "previous_release_commit": "b729167e0d8cac36f515cdb37a6c8803efc63c72"
+  "previous_release_commit": "b729167e0d8cac36f515cdb37a6c8803efc63c72",
+  "cyber_rules_source_commit": "868d1c1f963b16494c8ebfe143c6a8d77db8b90f"
 }

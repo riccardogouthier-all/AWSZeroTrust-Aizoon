@@ -1,0 +1,45 @@
+<group name="blue_team_ctf,">
+  <!-- Messaggi del connettore ModSecurity nel file error.log di Nginx. -->
+  <rule id="110211" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "942[0-9]{3}"\]</match>
+    <description>WAF - corrispondenza CRS nella famiglia SQL injection</description>
+    <group>crs_sqli,</group>
+  </rule>
+  <rule id="110212" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "941[0-9]{3}"\]</match>
+    <description>WAF - corrispondenza CRS nella famiglia XSS</description>
+    <group>crs_xss,</group>
+  </rule>
+  <rule id="110213" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "10011"\]</match>
+    <description>WAF - Pubblicazione di file riservati</description>
+    <group>private_download,</group>
+  </rule>
+  <rule id="110214" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "10012"\]</match>
+    <description>WAF - Accesso ai log del backend</description>
+    <group>access_log,</group>
+  </rule>
+  <rule id="110215" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "10013"\]</match>
+    <description>WAF - Metriche richieste dal proxy pubblico</description>
+    <group>public_metrics,</group>
+  </rule>
+  <rule id="110216" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "10014"\]</match>
+    <description>WAF - Registrazione con ruolo amministrativo</description>
+    <group>admin_registration,</group>
+  </rule>
+  <rule id="110217" level="6">
+    <location type="pcre2">^/opt/(?:blue-team|aizoon)/logs/error\.log$</location>
+    <match type="pcre2">ModSecurity:.*?\[id "10015"\]</match>
+    <description>WAF - Quantità negativa nel carrello</description>
+    <group>negative_quantity,</group>
+  </rule>
+</group>

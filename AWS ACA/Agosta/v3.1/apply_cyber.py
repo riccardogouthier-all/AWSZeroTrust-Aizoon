@@ -3,8 +3,8 @@ Preserve the current CA, container name and agent enrollment; no second stack.
 """
 import base64,json
 from ops import ROOT,send,wait
+from update_cyber_rules import RULE as rule, siem_update
 
-rule=(ROOT/'cyber/files/REQUEST-900-BLUE-TEAM.conf').read_text(encoding='utf-8-sig')
 template=(ROOT/'cyber/roles/agents/templates/inputs.xml.j2').read_text(encoding='utf-8-sig')
 assert 'id:10001' in rule and '{% else %}' in template and '{% endif %}' in template
 check=(ROOT/'cyber/tools/check_evidence.py').read_text(encoding='utf-8-sig')
@@ -82,8 +82,7 @@ for package in wazuh-manager wazuh-indexer wazuh-dashboard; do
 done
 apt-mark hold wazuh-manager wazuh-indexer wazuh-dashboard filebeat
 sed -i 's#<logall_json>no</logall_json>#<logall_json>yes</logall_json>#' /var/ossec/etc/ossec.conf
-/var/ossec/bin/wazuh-analysisd -t
-systemctl restart wazuh-manager
+""" + siem_update() + """
 systemctl is-active wazuh-manager wazuh-indexer wazuh-dashboard filebeat
 """
 wait('siem',send('siem',script,'Adopt cyber SIEM settings without reinstall'))

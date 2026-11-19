@@ -1,5 +1,7 @@
 # Stato tecnico — 13 novembre 2026
 
+Per lo stato corrente del 19 novembre, vedere il [README](README.md). Le verifiche sotto si riferiscono al deploy del 13 novembre.
+
 Riferimento operativo: [Agosta v3.1](AWS%20ACA/Agosta/v3.1/README.md).
 
 | Componente | Stato |

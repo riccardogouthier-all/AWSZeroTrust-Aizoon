@@ -13,6 +13,16 @@ def main():
     with contextlib.redirect_stdout(io.StringIO()):
         runpy.run_path('apply_cyber.py',run_name='adapter_self_check')
     assert len(captured)==7
+    full_siem = captured[-1][1]
+    with contextlib.redirect_stdout(io.StringIO()):
+        runpy.run_path('update_cyber_rules.py', run_name='__main__')
+    assert [role for role, _, _ in captured[-2:]] == ["siem", "waf"]
+    from update_cyber_rules import CLASSIFICATIONS, RULE, stage
+    assert stage("candidate", CLASSIFICATIONS) in full_siem
+    assert stage("candidate", CLASSIFICATIONS) in captured[-2][1]
+    assert stage("target", RULE) in captured[-1][1]
+    assert 'logall_json' not in captured[-2][1]
+    assert 'MODSEC_RULE_ENGINE=DetectionOnly' in captured[-1][1]
     for index,(role,script,label) in enumerate(captured):
      if "python3 <<'PY'\n" in script:
       code=script.split("python3 <<'PY'\n",1)[1].split('\nPY\n',1)[0]
@@ -21,7 +31,7 @@ def main():
     assert any('/opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf' in script for _,script,_ in captured)
     assert any('bt_waf_audit' in script for role,script,_ in captured if role=='waf')
     assert all('wazuh-install.sh -a' not in script for _,script,_ in captured)
-    print('PASS: seven payloads, Python syntax, cyber rule/input provenance, no reinstall.')
+    print('PASS: seven bootstrap payloads and two rules-only payloads.')
 
 
 if __name__ == "__main__":

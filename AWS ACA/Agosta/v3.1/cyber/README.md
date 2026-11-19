@@ -1,5 +1,5 @@
-# Snapshot Cyber
+# Snapshot Cyber v3.1
 
-Cinque file da Finocchielli al commit 169a747: regola 10001, template input agenti, probe.py, check_evidence.py e test_telemetry.py. Contenuto invariato, newline LF; SHA-256 in [provenienza](../docs/provenienza.json).
+Regole ModSecurity e classificazioni Wazuh dal commit Finocchielli `868d1c1`. Input agenti, probe e test di telemetria dal commit `169a747`. Hash SHA-256 con newline LF in [provenienza](../docs/provenienza.json).
 
-Usati da apply_cyber.py sullo stack cloud-init esistente. I playbook completi rimangono in Cyber CYS/Defence/Finocchielli e sono destinati a VM dedicate. Nessuna sincronizzazione automatica del contributo upstream.
+Per il deploy completo usare `apply_cyber.py`. Per aggiornare soltanto le regole su un lab esistente usare `update_cyber_rules.py`. La [matrice delle sfide](../../../../Cyber%20CYS/Defence/Finocchielli/DIFESE-SFIDE.md) distingue telemetria e controlli applicativi.

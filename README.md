@@ -1,15 +1,25 @@
 # AWS Zero Trust Lab
 
-Juice Shop dietro nginx/ModSecurity/CRS; Wazuh privato. Gestione SSM, IaC Terraform, esercitazioni Red/Blue sincrone o asincrone.
+Lab didattico Red/Blue su AWS. nginx con ModSecurity e OWASP CRS espone Juice Shop. WEB e Wazuh sono in subnet privata, con gestione tramite SSM.
 
-| Riferimento | Uso |
+## Aggiornamento Cyber del 19 novembre 2026
+
+Il commit `868d1c1` di Finocchielli aggiunge una matrice per 118 sfide, cinque regole ModSecurity (10011–10015) e sette classificazioni Wazuh (110211–110217), incluse le famiglie CRS SQLi e XSS. La v3.1 include i due file di regole nel bootstrap e offre un aggiornamento mirato per i nodi esistenti. In `DetectionOnly` le corrispondenze producono telemetria. Il collaudo applicativo resta distinto.
+
+## Stato
+
+| Area | Stato |
 |---|---|
-| [Agosta v3.1](AWS%20ACA/Agosta/v3.1/README.md) | Versione operativa: deploy, IAM Blue Team, budget e switch EC2 |
-| [Accessi Blue Team](Cyber%20CYS/Defence/ACCESSO_BLUE_TEAM_v3.1.md) | Console AWS, Wazuh, ruolo di difesa |
-| [Runbook Cyber](Cyber%20CYS/Defence/Finocchielli/RUNBOOK.md) | Telemetria e installazione su VM dedicate |
-| [Stato](STEP.md) | Verificato e da completare |
-| [Agosta 2.0](AWS%20ACA/Agosta/laboratorio_aws_2.0/README.md) | Variante Learner Lab con Ansible via SSM |
-| [Gouthier](AWS%20ACA/Gouthier/tentativo%202/README.md) | Variante Terraform/cloud-init |
-| [Agosta v3](AWS%20ACA/Agosta/v3/README.md) | Release precedente |
+| AWS | VPC, WAF, WEB e SIEM distribuiti. Le tre EC2 risultano ferme al controllo del 19 novembre. |
+| Regole Cyber | Integrate nel repository. Passati 23 test offline e il controllo di sintassi su 9 payload SSM. Applicazione AWS e correlazione WAF → Wazuh da verificare al prossimo avvio. |
+| Monitoraggio e backup | CloudWatch, Flow Logs e recovery point WEB verificati nel deploy del 13 novembre. Ripristino completo sull’account personale da provare. |
+| Blue Team | Wazuh in sola lettura verificato. Primo accesso console con MFA del membro da completare. |
+| QA e CI/CD | Verificati Chromium, Firefox e WebKit con viewport desktop e mobile. Restano dispositivi fisici e GitHub Actions con approvazione. |
 
-[Specifica aizoOn originale](Proposta%20Laboratorio%20Integrato_Ottobre%202026_aizoOn.docx) conservata. Credenziali, chiavi, state e runtime esclusi da Git. Non applicare uno state vuoto sull'account già distribuito.
+Al prossimo avvio, attendere WAF e SIEM online in SSM, applicare `python update_cyber_rules.py` dal workspace v3.1 con gli output dello stack e verificare la ricezione di un alert di prova.
+
+- [Deploy e operazioni v3.1](AWS%20ACA/Agosta/v3.1/README.md)
+- [Switch EC2](AWS%20ACA/Agosta/v3.1/docs/ACCENSIONE_SPEGNIMENTO.md)
+- [Accessi Blue Team](Cyber%20CYS/Defence/ACCESSO_BLUE_TEAM_v3.1.md)
+- [Matrice e collaudo delle difese](Cyber%20CYS/Defence/Finocchielli/DIFESE-SFIDE.md)
+- [Specifica originale aizoOn](Proposta%20Laboratorio%20Integrato_Ottobre%202026_aizoOn.docx)

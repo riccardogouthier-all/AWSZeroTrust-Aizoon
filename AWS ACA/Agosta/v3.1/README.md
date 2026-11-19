@@ -51,6 +51,16 @@ python lab.py blue-init
 
 L'adattatore aggiunge regola 10001, audit JSON AHZ, input e rotazione senza reinstallare Wazuh. blue-init crea login con password fuori dallo state, consegna Wazuh cifrata RSA e cambio password AWS obbligatorio. File in private/, ACL Windows o directory Linux 0700; niente reset automatico di login già esistenti senza handoff.
 
+## Aggiornare un lab esistente
+
+Con WAF in `DetectionOnly`, WAF e SIEM online in SSM e gli output corretti in `evidence/outputs.json`:
+
+```powershell
+python update_cyber_rules.py
+```
+
+Installa le classificazioni Wazuh, verifica gli ID e la configurazione, riavvia il manager e ricarica nginx dopo `nginx -t`. Ripristina il file precedente del componente se la validazione o l’attivazione fallisce. Il comando conserva le impostazioni di archiviazione. Verificare poi l’alert 110213 con una richiesta di controllo innocua, come descritto nella [matrice Cyber](../../../Cyber%20CYS/Defence/Finocchielli/DIFESE-SFIDE.md).
+
 ## Verifiche
 
 ```powershell
