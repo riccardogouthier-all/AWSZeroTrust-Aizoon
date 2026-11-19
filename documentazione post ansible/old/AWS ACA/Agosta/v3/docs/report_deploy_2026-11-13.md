@@ -42,4 +42,4 @@ SIEM 2 vCPU sotto il riferimento; nessuno stress test, restore completo personal
 
 Pipeline GitHub Actions con approvazione non implementata. L'operatore conserva state/runtime/handoff; Git include solo sorgenti, istruzioni e [evidenze selezionate](evidenze/README.md). Il pacchetto 3.1 aggiunge metadati output, helper portabili e switch, verificati offline/DryRun; nessun nuovo ciclo di deploy o stop/start reale.
 
-Lo switch descritto sopra viene pubblicato nella [v3.1](../../v3.1/docs/ACCENSIONE_SPEGNIMENTO.md); non fa parte del codice v3.
+Lo switch descritto sopra viene pubblicato nella [v3.1](../../../../../attuale/AWS%20ACA/Agosta/v3.1/docs/ACCENSIONE_SPEGNIMENTO.md); non fa parte del codice v3.

@@ -9,13 +9,13 @@ from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from check_challenges import compare
+from check_challenges import MATRIX, compare
 from check_public_assets import findings
 
 
 class ChallengeTests(unittest.TestCase):
     def test_catalog_completeness(self):
-        with (ROOT / "sfide.csv").open(encoding="utf-8", newline="") as stream:
+        with MATRIX.open(encoding="utf-8", newline="") as stream:
             rows = list(csv.DictReader(stream))
         self.assertEqual(len(rows), 118)
         self.assertEqual(len({row["key"] for row in rows}), len(rows))

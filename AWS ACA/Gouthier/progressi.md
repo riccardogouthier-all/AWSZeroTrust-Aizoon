@@ -2,6 +2,13 @@
 
 **Perimetro:** `AWS ACA/Agosta` e `Cyber CYS/Defence/Finocchielli` · **Stato al:** 19 novembre 2026 · **Redatto da:** coordinamento progetto
 
+## Aggiornamento dopo l’integrazione Ansible
+
+- **AWS:** nell’ultima verifica del 19 novembre WAF, WEB e SIEM erano accesi e operativi. Budget a 35 USD mensili prima dei crediti, con stop automatico riarmato.
+- **Cyber:** regole integrate sul lab. Correlazione verificata tra ModSecurity 10011 e Wazuh 110213 sul log di audit JSON. WAF in `DetectionOnly`. Restano da provare le altre classificazioni e il blocco.
+- **Ansible e Checkov:** verifica via SSM passata sulle tre EC2 esistenti. Play WEB con zero modifiche. Restano il bootstrap su EC2 nuove e la revisione dei finding.
+- **Documentazione:** guide operative in `attuale/`, versioni storiche in `old/`. Questo file resta aggiornato in Gouthier. [Indice](../../documentazione%20post%20ansible/README.md) · [Report Ansible](../../documentazione%20post%20ansible/attuale/AWS%20ACA/Agosta/v3.1/docs/ANSIBLE.md)
+
 ## 1. Sintesi
 
 Il laboratorio AWS (Agosta, versione corrente 3.1) è distribuito e verificato sull'account personale: tre EC2 (WAF, WEB, SIEM), telemetria, backup, protezione costi e switch di accensione/spegnimento. Il contributo Blue Team (Finocchielli) è consegnato e documentato e si innesta sul laboratorio tramite un adattatore, senza reinstallare Wazuh. Il WAF parte in `DetectionOnly`: osserva e segnala, non blocca. Codice, test e documentazione sono a buon punto; restano aperte le prove sui motori reali, il passaggio al blocco e alcune verifiche di sicurezza e dimensionamento.
@@ -14,9 +21,9 @@ Storico: 12 novembre pacchetto Agosta 2.0 (Learner Lab) e consegna iniziale Blue
 |---|---|
 | `laboratorio_aws_2.0` | Variante storica per Learner Lab: Terraform + Ansible via SSM, ruoli LabRole preesistenti, backend S3, immagini a digest (`images.lock.json`), test browser/WAF/backup, report e proposta soluzione. |
 | `v3` | Account personale: ruoli IAM dedicati, state locale, cloud-init, adattatore Cyber, accessi Blue Team, protezione costi. |
-| `v3.1` | Evoluzione corrente: aggiunge `lab.py`/`lab.ps1` (start/stop/status EC2, anche per singolo ruolo), `ACCENSIONE_SPEGNIMENTO.md` e documentazione sintetica. Nessun nuovo stack creato alla pubblicazione. |
+| `v3.1` | Evoluzione corrente: aggiunge lo switch EC2 `lab.py`/`lab.ps1`, il profilo Ansible via SSM e la guida operativa. Nessun nuovo stack creato alla pubblicazione. |
 
-**Architettura 3.1.** us-east-1, una AZ, VPC 10.20/16 con subnet pubblica (10.20.1/24) e privata (10.20.2/24), IGW, NAT, endpoint S3. WAF t3.small su 10.20.1.10 con EIP (nginx/ModSecurity/CRS, HTTPS pubblico); WEB t3.small su 10.20.2.10 (Juice Shop:3000); SIEM m7i-flex.large (2 vCPU/8 GiB/50 GiB) su 10.20.2.11 con Wazuh 4.14.10. WEB e SIEM senza IP pubblico; gestione via SSM, SSH chiuso, IMDSv2, EBS cifrati. Telemetria: 13 allarmi, metriche memoria/disco/HTTPS, syslog CloudWatch, Flow Logs su S3, SNS→SQS. Backup giornaliero alle 02:00 UTC, retention un giorno. Budget mensile 20 USD pre-crediti con stop automatico delle tre EC2.
+**Architettura 3.1.** us-east-1, una AZ, VPC 10.20/16 con subnet pubblica (10.20.1/24) e privata (10.20.2/24), IGW, NAT, endpoint S3. WAF t3.small su 10.20.1.10 con EIP (nginx/ModSecurity/CRS, HTTPS pubblico); WEB t3.small su 10.20.2.10 (Juice Shop:3000); SIEM m7i-flex.large (2 vCPU/8 GiB/50 GiB) su 10.20.2.11 con Wazuh 4.14.10. WEB e SIEM senza IP pubblico; gestione via SSM, SSH chiuso, IMDSv2, EBS cifrati. Telemetria: 13 allarmi, metriche memoria/disco/HTTPS, syslog CloudWatch, Flow Logs su S3, SNS→SQS. Backup giornaliero alle 02:00 UTC, retention un giorno. Budget operativo da 35 USD al mese prima dei crediti, con stop automatico delle tre EC2.
 
 ## 3. Agosta — esiti del deploy e delle verifiche (13 novembre)
 
@@ -55,7 +62,7 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 
 | Punto | Titolare / azione |
 |---|---|
-| Nuovi ID regola (10011–10015, 110213–110217) non collaudati nei motori reali | Blue: prova su WAF e manager, `wazuh-analysisd -t`. |
+| Verifica dal vivo di 10012–10015 e delle relative classificazioni ancora aperta | Blue: prova su WAF e manager, `wazuh-analysisd -t`. |
 | Blocco non attivato | Blue: staging, rollback a `DetectionOnly` se si rompe traffico normale. |
 | Esiti applicativi (WEB, IAM, UI, BUILD, OPS, WEB3) | Team applicativo, frontend, chi prepara l'immagine, Cloud. |
 | Idempotenza Ansible, carico, installazione su VM dedicate | Blue: secondo run di `site.yml`. |
@@ -78,7 +85,7 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 
 ## 7. Prossimi passi
 
-1. Collaudare le nuove regole sul laboratorio AWS, con timestamp UTC, marker e transaction ID.
+1. Completare il collaudo delle regole rimanenti sul laboratorio AWS, con timestamp UTC, marker e transaction ID.
 2. Concordare con Red sorgente, finestra e marker; eseguire prova asincrona (attacco → analisi → modifica → replay).
 3. Promuovere al blocco in staging solo le regole senza regressioni.
 4. Completare MFA del membro Blue, restore di backup e misure sul SIEM.

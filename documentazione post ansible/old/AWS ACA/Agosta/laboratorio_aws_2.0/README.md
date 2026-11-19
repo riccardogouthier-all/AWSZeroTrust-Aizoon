@@ -1,6 +1,6 @@
 # Laboratorio 2.0 — Learner Lab
 
-Variante storica: Terraform + Ansible eseguito sulle EC2 via SSM. [Versione corrente 3.1](../v3.1/README.md).
+Variante storica: Terraform + Ansible eseguito sulle EC2 via SSM. [Versione corrente 3.1](../../../../attuale/AWS%20ACA/Agosta/v3.1/README.md).
 
 ## Configurazione
 
@@ -8,7 +8,9 @@ Tre Ubuntu 24.04 amd64: WAF/WEB t3.small 20 GiB; SIEM t3.large 8 GiB RAM/50 GiB.
 
 Prerequisiti: Terraform ≥1.9, AWS CLI v2 + Session Manager plugin, Python ≥3.12. Profilo Learner Lab con access key, secret e session token nel file privato AWS. LabRole/LabInstanceProfile già presenti; nessuna creazione IAM.
 
-## Deploy — PowerShell dalla cartella del pacchetto
+## Deploy
+
+Eseguire i comandi PowerShell dalla [cartella del codice Learner Lab 2.0](../../../../../AWS%20ACA/Agosta/laboratorio_aws_2.0/).
 
 ```powershell
 py -m venv .venv

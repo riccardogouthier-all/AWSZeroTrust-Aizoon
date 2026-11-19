@@ -1,6 +1,6 @@
 # Gouthier — tentativo 2
 
-Provisioning Terraform/cloud-init; gestione SSM. Nessun controller Ansible. Variante Learner Lab, distinta da [Agosta v3.1](../../Agosta/v3.1/README.md).
+Provisioning Terraform/cloud-init; gestione SSM. Nessun controller Ansible. Variante Learner Lab, distinta da [Agosta v3.1](../../../../attuale/AWS%20ACA/Agosta/v3.1/README.md).
 
 ## Contratto
 

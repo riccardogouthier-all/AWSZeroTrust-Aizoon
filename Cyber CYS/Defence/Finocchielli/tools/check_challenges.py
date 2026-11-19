@@ -4,7 +4,10 @@ import csv
 import re
 from pathlib import Path
 
-MATRIX = Path(__file__).resolve().parents[1] / "sfide.csv"
+MATRIX = (
+    Path(__file__).resolve().parents[4]
+    / "documentazione post ansible/attuale/Cyber CYS/Defence/Finocchielli/sfide.csv"
+)
 
 
 def compare(source, matrix=MATRIX):

@@ -61,4 +61,4 @@ Eseguire il tunnel restituito e aprire https://localhost:8443. Le credenziali ad
 | 502 | WEB pronto, container, flusso WAF→WEB:3000 |
 | Agenti assenti | Bootstrap SIEM, porte 1514/1515, enrollment |
 
-Per distruggere: plan -destroy sullo state corretto, gestione recovery point, destroy, verifica NAT/EIP/EC2 residue. Non eliminare prima il backend. Per lo stop operativo senza ricreazione usare la variante [3.1](../Agosta/v3.1/docs/ACCENSIONE_SPEGNIMENTO.md).
+Per distruggere: plan -destroy sullo state corretto, gestione recovery point, destroy, verifica NAT/EIP/EC2 residue. Non eliminare prima il backend. Per lo stop operativo senza ricreazione usare la variante [3.1](../../../attuale/AWS%20ACA/Agosta/v3.1/docs/ACCENSIONE_SPEGNIMENTO.md).

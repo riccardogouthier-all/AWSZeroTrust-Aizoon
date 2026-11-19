@@ -1,6 +1,6 @@
 # Specifica tecnica 2.0 — riferimento storico
 
-Implementazione corrente: [v3.1](v3.1/README.md). Specifica originale aizoOn conservata nella radice del repository.
+Implementazione corrente: [v3.1](../../../attuale/AWS%20ACA/Agosta/v3.1/README.md). Specifica originale aizoOn conservata nella radice del repository.
 
 ## Requisiti
 

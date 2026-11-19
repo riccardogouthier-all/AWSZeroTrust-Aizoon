@@ -21,7 +21,7 @@ Flussi SG: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 
 
 Prerequisiti: Terraform 1.13.5 o compatibile, AWS CLI/plugin SSM, Python ≥3.12, profilo privato con permessi IAM/Cloud. OpenSSL locale o Ubuntu/WSL per i login. Variante non compatibile con i soli permessi ridotti del Learner Lab.
 
-Da questa cartella, PowerShell:
+Eseguire i comandi PowerShell dalla [cartella del codice v3.1](../../../../../AWS%20ACA/Agosta/v3.1/).
 
 ```powershell
 python -m venv .venv
@@ -50,7 +50,7 @@ python apply_cyber.py
 python lab.py blue-init
 ```
 
-Il playbook locale su ogni EC2 installa SIEM → WEB → WAF e gli agenti. Riusa i helper AWS per conservare CA privata, health check, nomi e percorsi. Il [playbook Cyber](../../../Cyber%20CYS/Defence/Finocchielli/site.yml) resta il riferimento del profilo su VM dedicate.
+Il playbook locale su ogni EC2 installa SIEM → WEB → WAF e gli agenti. Riusa i helper AWS per conservare CA privata, health check, nomi e percorsi. Il [playbook Cyber](../../../../../Cyber%20CYS/Defence/Finocchielli/site.yml) resta il riferimento del profilo su VM dedicate.
 
 L'adattatore aggiunge regola 10001, audit JSON AHZ, input e rotazione senza reinstallare Wazuh. blue-init crea login con password fuori dallo state, consegna Wazuh cifrata RSA e cambio password AWS obbligatorio. File in private/, ACL Windows o directory Linux 0700; niente reset automatico di login già esistenti senza handoff.
 
