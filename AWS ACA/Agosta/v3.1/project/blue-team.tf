@@ -147,7 +147,7 @@ resource "aws_iam_policy" "blue" {
         Effect    = "Allow"
         Action    = "ssm:StartSession"
         Resource  = aws_instance.host["siem"].arn
-        Condition = { Bool = { "ssm:SessionDocumentAccessCheck" = "true" } }
+        Condition = { BoolIfExists = { "ssm:SessionDocumentAccessCheck" = "true" } }
       },
       {
         Effect   = "Allow"

@@ -4,9 +4,10 @@
 
 ## Aggiornamento dopo l’integrazione Ansible
 
-- **AWS:** nell’ultima verifica del 19 novembre WAF, WEB e SIEM erano accesi e operativi. Budget a 35 USD mensili prima dei crediti, con stop automatico riarmato.
+- **AWS:** il 19 novembre WAF, WEB e SIEM sono stati verificati operativi, poi fermati su richiesta. Stato finale delle tre EC2 verificato in AWS: `stopped`. Budget a 35 USD mensili prima dei crediti, con stop automatico riarmato.
 - **Cyber:** regole integrate sul lab. Correlazione verificata tra ModSecurity 10011 e Wazuh 110213 sul log di audit JSON. WAF in `DetectionOnly`. Restano da provare le altre classificazioni e il blocco.
 - **Ansible e Checkov:** verifica via SSM passata sulle tre EC2 esistenti. Play WEB con zero modifiche. Restano il bootstrap su EC2 nuove e la revisione dei finding.
+- **Accesso Blue Team:** login AWS CLI con MFA confermato in CloudTrail. Corretto il controllo IAM SSM. La sessione del tunnel risulta connessa in AWS e Wazuh risponde sulla porta 443 del SIEM. La guida indica `https://127.0.0.1:8443/` sul PC che apre il tunnel. Resta da confermare la pagina dal suo browser.
 - **Documentazione:** guide operative in `attuale/`, versioni storiche in `old/`. Questo file resta aggiornato in Gouthier. [Indice](../../documentazione%20post%20ansible/README.md) · [Report Ansible](../../documentazione%20post%20ansible/attuale/AWS%20ACA/Agosta/v3.1/docs/ANSIBLE.md)
 
 ## 1. Sintesi
