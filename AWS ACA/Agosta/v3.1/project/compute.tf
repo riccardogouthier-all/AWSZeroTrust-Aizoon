@@ -12,16 +12,15 @@ locals {
     WAZUH_SERIES = var.wazuh_series
   }
 
-  # Script per ruolo = intestazione env + common.sh + ruolo.sh + [waf-health.sh] + [agent.sh]
-  # L'agent va per ultimo: attende il SIEM, che impiega molti minuti.
+  # Il bootstrap AWS rimane in cloud-init. Il profilo storico conserva lo user_data originale.
   user_data = {
     for role in keys(local.hosts) : role => join("\n", concat(
       ["#!/bin/bash", "export ROLE=${role}"],
       [for k, v in local.common_env : "export ${k}='${v}'"],
       [file("${path.module}/scripts/common.sh")],
-      [file("${path.module}/scripts/${role}.sh")],
-      role == "waf" ? [file("${path.module}/scripts/waf-health.sh")] : [],
-      role == "siem" ? [] : [file("${path.module}/scripts/agent.sh")],
+      var.configure_with_ansible ? [] : [file("${path.module}/scripts/${role}.sh")],
+      !var.configure_with_ansible && role == "waf" ? [file("${path.module}/scripts/waf-health.sh")] : [],
+      !var.configure_with_ansible && role != "siem" ? [file("${path.module}/scripts/agent.sh")] : [],
     ))
   }
 }

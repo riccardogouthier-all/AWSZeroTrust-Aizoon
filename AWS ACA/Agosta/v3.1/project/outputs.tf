@@ -31,3 +31,8 @@ output "ssm_siem_tunnel" {
 output "account_id" { value = data.aws_caller_identity.current.account_id }
 output "region" { value = var.region }
 output "project" { value = var.project }
+
+output "ansible_bootstrap" {
+  description = "Configurazione non sensibile proveniente dallo state Terraform."
+  value       = var.configure_with_ansible ? local.common_env : null
+}

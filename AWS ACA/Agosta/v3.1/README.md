@@ -1,6 +1,6 @@
 # AWS Lab 3.1
 
-Account personale: Terraform/cloud-init, integrazione Cyber via SSM, IAM Blue Team, budget e switch EC2. Evoluzione della [v3](../v3/README.md); nessun nuovo stack creato durante la pubblicazione.
+Terraform crea le risorse AWS. Cloud-init prepara il nodo e CloudWatch. Ansible installa i servizi attraverso SSM. Le configurazioni Cyber assegnano regole WAF, input e classificazioni Wazuh.
 
 ## Architettura
 
@@ -39,15 +39,18 @@ python lab.py outputs
 python ops.py nodes
 ```
 
-Parametri: region/project, nomi ruoli, tester_ipv4_cidrs; 0.0.0.0/0 pubblica solo il WAF. Un'installazione per account: blue-team e BlueTeamLogs hanno nomi fissi. Sul deploy esistente recuperare lo state privato originale; non applicare uno state vuoto.
+Parametri: region/project, nomi ruoli, tester_ipv4_cidrs. `0.0.0.0/0` pubblica solo il WAF. Un’installazione per account per i nomi IAM fissi. Per lo stack già distribuito conservare lo state privato e impostare `configure_with_ansible=false` prima di un eventuale plan. Abilitare il nuovo bootstrap sullo state esistente cambierebbe lo user data e pianificherebbe la sostituzione delle EC2.
 
-Attendere cloud-init done e tre nodi SSM Online prima di configurare:
+Attendere i tre nodi SSM Online. Per un nuovo deploy usare l’hash dell’installer ufficiale Wazuh 4.14 dopo la revisione del file. La patch attesa è 4.14.10.
 
 ```powershell
+python configure.py --wazuh-installer-sha256 <SHA256_REVISIONATO>
 python lab.py ca
 python apply_cyber.py
 python lab.py blue-init
 ```
+
+Il playbook locale su ogni EC2 installa SIEM → WEB → WAF e gli agenti. Riusa i helper AWS per conservare CA privata, health check, nomi e percorsi. Il [playbook Cyber](../../../Cyber%20CYS/Defence/Finocchielli/site.yml) resta il riferimento del profilo su VM dedicate.
 
 L'adattatore aggiunge regola 10001, audit JSON AHZ, input e rotazione senza reinstallare Wazuh. blue-init crea login con password fuori dallo state, consegna Wazuh cifrata RSA e cambio password AWS obbligatorio. File in private/, ACL Windows o directory Linux 0700; niente reset automatico di login già esistenti senza handoff.
 
@@ -56,12 +59,17 @@ L'adattatore aggiunge regola 10001, audit JSON AHZ, input e rotazione senza rein
 Con WAF in `DetectionOnly`, WAF e SIEM online in SSM e gli output corretti in `evidence/outputs.json`:
 
 ```powershell
+python configure.py --verify-only
 python update_cyber_rules.py
 ```
+
+Eseguire i comandi separatamente. Il primo può installare `ansible-core` per controllare i servizi esistenti senza rilanciare il bootstrap. Il secondo va eseguito quando si vuole aggiornare le regole Cyber.
 
 Installa le classificazioni Wazuh, verifica gli ID e la configurazione, riavvia il manager e ricarica nginx dopo `nginx -t`. Ripristina il file precedente del componente se la validazione o l’attivazione fallisce. Il comando conserva le impostazioni di archiviazione. Verificare poi l’alert 110213 con una richiesta di controllo innocua, come descritto nella [matrice Cyber](../../../Cyber%20CYS/Defence/Finocchielli/DIFESE-SFIDE.md).
 
 ## Verifiche
+
+Scansione IaC prima dell’apply con `checkov -d project --framework terraform` e `checkov -d ansible --framework ansible`. Esiti e adattamenti in [integrazione Ansible](docs/ANSIBLE.md).
 
 ```powershell
 python -m unittest test_tools -v
@@ -85,6 +93,7 @@ Primi tre comandi offline. verify_aws crea utente QA, forza un allarme sintetico
 | Enforcement, regole, archivi | [Difesa live](docs/DIFESA_LIVE.md) |
 | Deploy effettivo / limiti | [Report](docs/report_deploy_2026-11-13.md) |
 | Test, immagini, hash | [Evidenze](docs/evidenze/README.md), [provenienza](docs/provenienza.json) |
+| Configurazioni del team Cyber | [Riuso, adattamenti e limiti](docs/RIUSO_CYBER.md) |
 
 ## Vincoli
 

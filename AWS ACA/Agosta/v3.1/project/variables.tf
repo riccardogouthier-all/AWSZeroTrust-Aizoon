@@ -51,6 +51,12 @@ variable "juice_shop_image" {
   default     = "bkimminich/juice-shop@sha256:877fc77b12d72b42e486eb09b6b1711cc56514306d92006b284e7e7cf076a809"
 }
 
+variable "configure_with_ansible" {
+  description = "Per nuovi deploy: cloud-init prepara AWS, Ansible installa e configura i servizi. Usare false con lo state preesistente."
+  type        = bool
+  default     = true
+}
+
 variable "waf_image" {
   description = "Immagine nginx + ModSecurity + OWASP CRS (riferimento con digest)."
   type        = string

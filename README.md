@@ -15,8 +15,10 @@ Il commit `868d1c1` di Finocchielli aggiunge una matrice per 118 sfide, cinque r
 | Monitoraggio e backup | CloudWatch, Flow Logs e recovery point WEB verificati nel deploy del 13 novembre. Ripristino completo sull’account personale da provare. |
 | Blue Team | Wazuh in sola lettura verificato. Primo accesso console con MFA del membro da completare. |
 | QA e CI/CD | Verificati Chromium, Firefox e WebKit con viewport desktop e mobile. Restano dispositivi fisici e GitHub Actions con approvazione. |
+| Ansible | Profilo di deploy integrato. Verifica sulle tre EC2 e adozione WEB passate. Restano il bootstrap su EC2 nuove e la revisione dei finding Checkov. |
 
 - [Deploy e operazioni v3.1](AWS%20ACA/Agosta/v3.1/README.md)
+- [Integrazione Ansible e Checkov](AWS%20ACA/Agosta/v3.1/docs/ANSIBLE.md)
 - [Switch EC2](AWS%20ACA/Agosta/v3.1/docs/ACCENSIONE_SPEGNIMENTO.md)
 - [Accessi Blue Team](Cyber%20CYS/Defence/ACCESSO_BLUE_TEAM_v3.1.md)
 - [Matrice e collaudo delle difese](Cyber%20CYS/Defence/Finocchielli/DIFESE-SFIDE.md)

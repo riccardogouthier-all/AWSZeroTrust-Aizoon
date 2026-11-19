@@ -1,0 +1,158 @@
+---
+- name: Configure or verify the AWS lab node
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    apt_command: apt-get -o Acquire::Retries=5 -y -qq
+  tasks:
+    - name: Configure the central Wazuh stack
+      when: node_role == "siem" and not verify_only
+      block:
+        - name: Detect installed Wazuh components
+          ansible.builtin.package_facts:
+            manager: apt
+        - name: Require an empty node or a complete installation
+          ansible.builtin.assert:
+            that:
+              - installed_central | length in [0, 4]
+              - "'wazuh-agent' not in ansible_facts.packages"
+          vars:
+            installed_central: "{{ ['wazuh-manager', 'wazuh-indexer', 'wazuh-dashboard', 'filebeat'] | intersect(ansible_facts.packages.keys() | list) }}"
+        - name: Bootstrap Wazuh with the reviewed installer
+          when: "'wazuh-manager' not in ansible_facts.packages"
+          block:
+            - name: Download checked Wazuh installer
+              ansible.builtin.get_url:
+                url: "https://packages.wazuh.com/{{ bootstrap.WAZUH_SERIES }}/wazuh-install.sh"
+                dest: /opt/aizoon/wazuh-install.sh
+                checksum: "sha256:{{ bootstrap.WAZUH_INSTALLER_SHA256 }}"
+                mode: '0700'
+            - name: Run the installer with a private log
+              ansible.builtin.shell: |
+                umask 077
+                bash ./wazuh-install.sh -a > wazuh-install-private.log 2>&1
+              args:
+                chdir: /opt/aizoon
+              no_log: true
+        - name: Confirm compatible central package versions
+          ansible.builtin.command:
+            argv: [dpkg-query, -W, '-f=${Version}', "{{ item }}"]
+            expand_argument_vars: false
+          loop: [wazuh-manager, wazuh-indexer, wazuh-dashboard]
+          register: wazuh_version
+          changed_when: false
+          failed_when: wazuh_version.rc != 0 or wazuh_version.stdout.split('-')[0] != '4.14.10'
+        - name: Install the AWS base rule for audit classification
+          ansible.builtin.copy:
+            dest: /var/ossec/etc/rules/aizoon_rules.xml
+            owner: root
+            group: wazuh
+            mode: '0640'
+            content: |
+              <group name="aizoon,web,">
+                <rule id="100100" level="7">
+                  <match>ModSecurity</match>
+                  <description>Aizoon lab WAF ModSecurity event</description>
+                </rule>
+              </group>
+          notify: Restart Wazuh manager
+        - name: Validate the Wazuh rules before restarting
+          ansible.builtin.command: /var/ossec/bin/wazuh-analysisd -t
+          changed_when: false
+
+    - name: Configure Juice Shop on WEB
+      when: node_role == "web" and not verify_only
+      block:
+        - name: Install Docker
+          ansible.builtin.apt:
+            name: docker.io
+            state: present
+            update_cache: true
+            cache_valid_time: 3600
+        - name: Start Docker
+          ansible.builtin.systemd_service:
+            name: docker
+            enabled: true
+            state: started
+        - name: Check for an existing Juice Shop container
+          ansible.builtin.command: docker container ls -aq --filter name=^/juice-shop$
+          register: juice_container
+          changed_when: false
+        - name: Create Juice Shop from the pinned image
+          ansible.builtin.command:
+            argv: [docker, run, -d, --name, juice-shop, --restart, unless-stopped, --log-opt, max-size=10m, --log-opt, max-file=3, -p, "3000:3000", "{{ bootstrap.JUICE_IMAGE }}"]
+          when: not juice_container.stdout
+        - name: Verify existing container image and running state
+          ansible.builtin.command:
+            argv:
+              - docker
+              - container
+              - inspect
+              - --format
+              - "{% raw %}{{.Config.Image}} {{.State.Running}}{% endraw %}"
+              - juice-shop
+          register: juice_state
+          changed_when: false
+          failed_when: juice_state.rc != 0 or juice_state.stdout != bootstrap.JUICE_IMAGE ~ ' true'
+
+    - name: Configure AWS WAF and the HTTPS monitor
+      when: node_role == "waf" and not verify_only
+      block:
+        - name: Bootstrap proxy and private CA with the existing AWS helper
+          ansible.builtin.script:
+            cmd: waf.sh
+            executable: /bin/bash
+            creates: /opt/aizoon/set-waf-mode.sh
+          environment: "{{ bootstrap | combine({'APT': apt_command}) }}"
+        - name: Start existing proxy without replacing its configuration
+          ansible.builtin.command: /opt/aizoon/start-waf.sh
+          register: waf_start
+          changed_when: waf_start.stdout | length > 0
+        - name: Install the AWS HTTPS health monitor
+          ansible.builtin.script:
+            cmd: waf-health.sh
+            executable: /bin/bash
+            creates: /etc/systemd/system/aizoon-health.timer
+          environment: "{{ bootstrap }}"
+
+    - name: Configure Wazuh agents on WEB and WAF
+      ansible.builtin.script:
+        cmd: agent.sh
+        executable: /bin/bash
+        creates: /var/ossec/etc/ossec.conf
+      environment: "{{ bootstrap | combine({'APT': apt_command, 'ROLE': node_role}) }}"
+      when: node_role in ['web', 'waf'] and not verify_only
+
+    - name: Verify local Juice Shop over HTTP
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/
+        status_code: 200
+        use_proxy: false
+      register: app
+      retries: 30
+      delay: 5
+      until: app.status == 200
+      when: node_role == "web"
+
+    - name: Validate nginx configuration
+      ansible.builtin.command: docker exec aizoon-waf nginx -t
+      changed_when: false
+      when: node_role == "waf"
+
+    - name: Verify the local Wazuh services
+      ansible.builtin.command:
+        argv: "{{ ['systemctl', 'is-active'] + wazuh_units }}"
+      vars:
+        wazuh_units: "{{ ['wazuh-manager', 'wazuh-indexer', 'wazuh-dashboard', 'filebeat'] if node_role == 'siem' else ['wazuh-agent'] }}"
+      register: wazuh_status
+      retries: 12
+      delay: 5
+      until: wazuh_status.rc == 0 and (wazuh_status.stdout_lines | unique | list) == ['active']
+      changed_when: false
+
+  handlers:
+    - name: Restart Wazuh manager
+      ansible.builtin.systemd_service:
+        name: wazuh-manager
+        state: restarted
