@@ -44,6 +44,9 @@ Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/
 | 25 nov | Bash predefinito nel documento SSM `BlueDefence` v2 | Avvio e log CloudWatch verificati su WAF e SIEM con l'account amministrativo, Backspace e Canc verificati sul WAF |
 | 25 nov | Wazuh 4.14.10, inizializzate 18 viste, impostato `checks.fields: false` e applicato `patch_wazuh_readonly.sh` | Apertura e refresh di WEB verificati con `blue-team` e `blue-verifica` in sola lettura |
 | 25 nov | Commit `fd83348` "completa gli accessi Blue Team": modifiche a `lab.py`, `blue-team.tf`, `provision_wazuh_blue.py`, `verify_blue_access.py`, nuovo `patch_wazuh_readonly.sh`; aggiornati README v3.1, `DIFESA_LIVE.md` e `ACCESSO_BLUE_TEAM_v3.1.md` | Fatto; la modifica Terraform di `blue-team.tf` va applicata solo dopo plan revisionato |
+| 25 nov | Riassunto dell'archivio storico `old` (piano iniziale, Learner Lab 2.0, tentativo 2, v3) in `riassunto-documentazione-old.md` | Fatto; l'archivio `old` è stato poi rimosso dal repository (commit `7caee78`), il riassunto ne conserva la sintesi |
+| 25 nov | Guide di accesso Blue Team filtrate: `blue-verifica.md` e `guida-accesso-cyber.md` con segnaposto al posto di password, utenti, account, IP, ID istanze e impronta; i valori stanno in file `.txt` locali esclusi da Git (commit `7caee78`) | Fatto; le procedure sono pubblicabili, le variabili restano private |
+| 25 nov | `ACCESSO_BLUE_TEAM_v3.1.md` filtrato come le altre guide: account, ID di WAF e SIEM, utenti, prefisso risorse e nome del referente sostituiti da segnaposto; valori in `variabili.txt` accanto al file, escluso da un nuovo `.gitignore` | Fatto; modifica non ancora committata |
 
 Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo chiusi, nessuna chiave API permanente per Blue.
 
@@ -75,6 +78,7 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 - Lo stop delle EC2 lascia costi di NAT, IPv4, EBS, log e backup; lo start è rifiutato se il budget è raggiunto. `destroy` non va usato per fermare le lezioni.
 - Non eseguire `verify_aws.py` o `waf_tests.py` durante una prova Red non concordata: hanno effetti.
 - Segreti e log integrali restano in `private/` e `evidence/`, esclusi da Git; si conservano solo evidenze minimizzate.
+- Le guide Cyber in Git usano segnaposto: password e identificativi stanno nei file `*variabili*.txt` locali, ignorati da Git. Account e ID delle istanze sono ora filtrati anche in `ACCESSO_BLUE_TEAM_v3.1.md`, ma restano nella cronologia Git dei commit precedenti; le password mostrate durante la preparazione delle guide vanno ruotate se i log della sessione non sono privati.
 
 ## 6. Prossimi passi per team
 
