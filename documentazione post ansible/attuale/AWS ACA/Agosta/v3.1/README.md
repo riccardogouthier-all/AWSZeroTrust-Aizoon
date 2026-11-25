@@ -48,6 +48,7 @@ python configure.py --wazuh-installer-sha256 <SHA256_REVISIONATO>
 python lab.py ca
 python apply_cyber.py
 python lab.py blue-init
+python lab.py blue-init --blue-user blue-verifica
 ```
 
 Il playbook locale su ogni EC2 installa SIEM → WEB → WAF e gli agenti. Riusa i helper AWS per conservare CA privata, health check, nomi e percorsi. Il [playbook Cyber](../../../../../Cyber%20CYS/Defence/Finocchielli/site.yml) resta il riferimento del profilo su VM dedicate.

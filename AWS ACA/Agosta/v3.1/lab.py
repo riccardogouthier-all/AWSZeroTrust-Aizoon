@@ -112,46 +112,50 @@ def completed(role, command):
     raise TimeoutError(f"SSM command {command} still running; inspect before retrying")
 
 
-def blue_init():
+def blue_init(username="blue-team"):
+    if username not in {"blue-team", "blue-verifica"}:
+        raise ValueError("Unsupported Blue Team username")
     account = checked_account()
     private = secure_private()
-    path = private / "blue-team-credentials.json"
+    path = private / f"{username}-credentials.json"
     iam = SESSION.client("iam")
     try:
-        iam.get_login_profile(UserName="blue-team")
+        iam.get_login_profile(UserName=username)
         exists = True
     except iam.exceptions.NoSuchEntityException:
         exists = False
     if exists and not path.exists():
         raise RuntimeError("Existing console login: recover the original private files; no password reset performed")
     data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {
-        "username": "blue-team", "account_id": account,
+        "username": username, "account_id": account,
         "console_url": f"https://{account}.signin.aws.amazon.com/console/",
         "aws_initial_password": "Bt9!" + secrets.token_urlsafe(24),
     }
-    assert data["account_id"] == account
+    assert data["account_id"] == account and data["username"] == username
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    key, public = private / "blue-team-handoff.key", private / "blue-team-handoff.pub"
+    key, public = private / f"{username}-handoff.key", private / f"{username}-handoff.pub"
     if not key.exists():
         if exists:
             raise RuntimeError("Recover the original handoff private key before continuing")
         openssl("genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:3072", "-out", key)
     public.write_bytes(openssl("pkey", "-in", key, "-pubout"))
     if not exists:
-        iam.create_login_profile(UserName="blue-team", Password=data["aws_initial_password"], PasswordResetRequired=True)
+        iam.create_login_profile(UserName=username, Password=data["aws_initial_password"], PasswordResetRequired=True)
     script = "python3 <<'PY'\nfrom pathlib import Path\nimport base64\n"
-    script += "p=Path('/opt/blue-team');p.mkdir(mode=0o700,exist_ok=True)\n"
+    remote_root = "/opt/blue-team" if username == "blue-team" else f"/opt/blue-team/{username}"
+    script += f"p=Path({remote_root!r});p.mkdir(mode=0o700,parents=True,exist_ok=True)\n"
+    script += f"BLUE_USERNAME={username!r}\n"
     script += f"(p/'handoff-public.pem').write_bytes(base64.b64decode({base64.b64encode(public.read_bytes()).decode()!r}))\n"
     source = base64.b64encode((ROOT / "provision_wazuh_blue.py").read_bytes()).decode()
     script += f"exec(compile(base64.b64decode({source!r}),'<blue-team-bootstrap>','exec'))\nPY\n"
     remote = json.loads(completed("siem", send("siem", script, "Create Blue Team Wazuh login with encrypted handoff")))
-    cipher = private / "wazuh-password.enc"
+    cipher = private / ("wazuh-password.enc" if username == "blue-team" else f"{username}-wazuh-password.enc")
     cipher.write_bytes(base64.b64decode(remote["encrypted_password"]))
     data["wazuh_password"] = openssl("pkeyutl", "-decrypt", "-inkey", key, "-in", cipher,
                                        "-pkeyopt", "rsa_padding_mode:oaep", "-pkeyopt", "rsa_oaep_md:sha256").decode()
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    (ROOT / "evidence/blue-team-wazuh-verification.json").write_text(json.dumps(remote["verification"], indent=2), encoding="utf-8")
-    print("Logins initialized. Credentials are in private/blue-team-credentials.json; no password printed.")
+    (ROOT / f"evidence/{username}-wazuh-verification.json").write_text(json.dumps(remote["verification"], indent=2), encoding="utf-8")
+    print(f"Logins initialized. Credentials are in private/{path.name}.")
 
 
 def main():
@@ -159,7 +163,10 @@ def main():
     parser.add_argument("command", choices=["outputs", "ca", "blue-init", "status", "start", "stop"])
     parser.add_argument("--role", choices=["all", "waf", "web", "siem"], default="all", help="EC2 power commands only")
     parser.add_argument("--dry-run", action="store_true", help="Check EC2 permissions without changing instance state")
+    parser.add_argument("--blue-user", choices=["blue-team", "blue-verifica"], default="blue-team", help="Login to initialize with blue-init")
     args = parser.parse_args()
+    if args.command != "blue-init" and args.blue_user != "blue-team":
+        parser.error("--blue-user is only available for blue-init")
     if args.command in {"status", "start", "stop"}:
         power(args.command, args.role, args.dry_run)
     elif args.role != "all" or args.dry_run:
@@ -176,7 +183,7 @@ def main():
         (ROOT / "lab-ca.crt").write_text(certificate, encoding="ascii")
         print("Public WAF CA exported. No private key exported.")
     else:
-        blue_init()
+        blue_init(args.blue_user)
 
 
 if __name__ == "__main__":

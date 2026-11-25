@@ -1,10 +1,10 @@
 # Progressi progetto — Laboratorio AWS v3.1
 
-**Perimetro:** solo la versione 3.1 (`AWS ACA/Agosta/v3.1`), la versione finale su cui si faranno tutte le modifiche, con i contributi Cyber che vi sono integrati (`Cyber CYS/Defence/Finocchielli`) · **Stato al:** 25 novembre 2026 (ultimo lavoro nel repository: 19 novembre) · **Redatto da:** coordinamento progetto
+**Perimetro:** solo la versione 3.1 (`AWS ACA/Agosta/v3.1`), la versione finale su cui si faranno tutte le modifiche, con i contributi Cyber che vi sono integrati (`Cyber CYS/Defence/Finocchielli`) · **Stato al:** 25 novembre 2026 · **Redatto da:** coordinamento progetto
 
 ## 1. Sintesi
 
-Il laboratorio v3.1 è distribuito e verificato sull'account personale: tre EC2 (WAF, WEB, SIEM), telemetria, backup, protezione costi, switch di accensione/spegnimento, configurazione con Ansible via SSM e difese Cyber integrate. Il 19 novembre le tre EC2 sono state verificate operative e poi fermate (`stopped`). Il WAF è in `DetectionOnly`: osserva e segnala, non blocca. Restano aperte le prove sulle regole rimaste, il passaggio al blocco, il bootstrap su EC2 nuove, la revisione dei finding Checkov e gli interventi di ridondanza e sicurezza (sezione 7).
+Il laboratorio v3.1 è distribuito e verificato sull'account personale: tre EC2 (WAF, WEB, SIEM), telemetria, backup, protezione costi, switch di accensione/spegnimento, configurazione con Ansible via SSM e difese Cyber integrate. Il 25 novembre le tre EC2 sono state riavviate e verificate operative. Il WAF è in `DetectionOnly`. Restano aperte le prove sulle regole rimaste, il passaggio al blocco, il bootstrap su EC2 nuove, la revisione dei finding Checkov e gli interventi di ridondanza e sicurezza (sezione 7).
 
 ## 2. Architettura
 
@@ -17,7 +17,7 @@ Il laboratorio v3.1 è distribuito e verificato sull'account personale: tre EC2 
 | Gestione | SSM, SSH chiuso, IMDSv2, EBS cifrati, ruoli EC2/Backup dedicati |
 | Telemetria | 13 allarmi, metriche memoria/disco/HTTPS, syslog CloudWatch, Flow Logs su S3, SNS→SQS |
 | Backup | Tre EC2, giornaliero 02:00 UTC, retention un giorno |
-| Costi | Budget 35 USD/mese prima dei crediti, stop automatico delle tre EC2 riarmato |
+| Costi | Budget 35 USD/mese prima dei crediti. Al riavvio del 25 novembre la soglia era superata e l'azione di stop risultava già eseguita. |
 
 Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/443. TLS con CA privata e SAN IP. Juice Shop è intenzionalmente vulnerabile: nessun dato reale.
 
@@ -39,8 +39,12 @@ Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/
 | 19 nov | Accesso Blue Team: login AWS CLI con MFA confermato in CloudTrail; corretto il controllo IAM SSM e il tunnel Wazuh | Fatto; pagina da confermare dal browser dell'operatore |
 | 19 nov | Tre EC2 verificate operative, poi fermate; budget a 35 USD con stop automatico riarmato | Fatto |
 | 19 nov | Documentazione centralizzata (`attuale/`, `old/`) | Fatto |
+| 25 nov | Riavvio WAF, WEB e SIEM | Tre EC2 `running` e online in SSM, homepage HTTPS 200 |
+| 25 nov | Un account operativo `blue-team` con MFA e profilo di verifica separato `blue-verifica` con gli stessi permessi | 58 verifiche di policy superate |
+| 25 nov | Bash predefinito nel documento SSM `BlueDefence` v2 | Avvio e log CloudWatch verificati su WAF e SIEM con l'account amministrativo, Backspace e Canc verificati sul WAF |
+| 25 nov | Wazuh 4.14.10, inizializzate 18 viste, impostato `checks.fields: false` e applicato `patch_wazuh_readonly.sh` | Apertura e refresh di WEB verificati con `blue-team` e `blue-verifica` in sola lettura |
 
-Dopo il 19 novembre non risultano nuovi commit. Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo chiusi, nessuna chiave API permanente per Blue.
+Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo chiusi, nessuna chiave API permanente per Blue.
 
 ## 4. Punti aperti
 
@@ -48,7 +52,7 @@ Dopo il 19 novembre non risultano nuovi commit. Finestre di archiviazione grezza
 |---|---|
 | Collaudo dal vivo di 10012–10015 e delle classificazioni 110214–110217 | Blue |
 | Blocco WAF non attivato | Blue |
-| Pagina Wazuh `https://127.0.0.1:8443/` da confermare dal browser dell'operatore | Blue |
+| Sessione SSM `BlueDefence` da collaudare con l'MFA dell'operatore dal proprio PC | Blue |
 | Bootstrap Ansible su tre EC2 nuove (incluso l'installer Wazuh) non collaudato | Cloud |
 | 18 finding Terraform e 5 Ansible di Checkov da rivedere (IAM, SSM, cifratura/retention CloudWatch, SNS, Backup, bucket log S3) | Cloud |
 | SIEM a 2 vCPU sotto il riferimento (4 vCPU/8 GiB/50 GB); nessuno stress test | Cloud |
@@ -86,7 +90,7 @@ Dopo il 19 novembre non risultano nuovi commit. Finestre di archiviazione grezza
 ### Team Cyber — Blue (difesa)
 
 1. Collaudare sul lab le regole 10012–10015 e le classificazioni 110214–110217, con timestamp UTC, marker e transaction ID; `wazuh-analysisd -t`.
-2. Confermare la pagina Wazuh `https://127.0.0.1:8443/` dal browser del membro Blue.
+2. Collaudare la sessione SSM `BlueDefence` dal PC del membro Blue con il suo MFA.
 3. Promuovere al blocco in staging solo le regole senza regressioni; rollback a `DetectionOnly` se si rompe traffico normale.
 4. Autenticare l'enrollment degli agenti Wazuh.
 5. Assegnare e tracciare le righe WEB/IAM/UI/BUILD ai titolari e registrare per ciascuna segnale osservato ed esito applicativo.

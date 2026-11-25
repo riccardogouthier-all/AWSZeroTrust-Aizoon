@@ -3,12 +3,21 @@ resource "aws_iam_user" "blue" {
   name = "blue-team"
 }
 
+resource "aws_iam_user" "blue_verifica" {
+  name = "blue-verifica"
+}
+
 resource "aws_iam_group" "blue" {
   name = "BlueTeamLogs"
 }
 
 resource "aws_iam_user_group_membership" "blue" {
   user   = aws_iam_user.blue.name
+  groups = [aws_iam_group.blue.name]
+}
+
+resource "aws_iam_user_group_membership" "blue_verifica" {
+  user   = aws_iam_user.blue_verifica.name
   groups = [aws_iam_group.blue.name]
 }
 
@@ -51,7 +60,7 @@ resource "aws_ssm_document" "blue_defence" {
       idleSessionTimeout          = "15"
       maxSessionDuration          = "60"
       runAsEnabled                = false
-      shellProfile                = { linux = "", windows = "" }
+      shellProfile                = { linux = "exec /bin/bash", windows = "" }
     }
   })
 }
@@ -146,21 +155,21 @@ resource "aws_iam_policy" "blue" {
       {
         Effect    = "Allow"
         Action    = "ssm:StartSession"
-        Resource  = aws_instance.host["siem"].arn
+        Resource  = [aws_instance.host["waf"].arn, aws_instance.host["siem"].arn]
         Condition = { BoolIfExists = { "ssm:SessionDocumentAccessCheck" = "true" } }
       },
       {
         Effect   = "Allow"
         Action   = ["ssm:StartSession", "ssm:GetDocument", "ssm:DescribeDocument"]
-        Resource = aws_ssm_document.blue_dashboard.arn
+        Resource = [aws_ssm_document.blue_dashboard.arn, aws_ssm_document.blue_defence.arn]
       },
       {
         Effect   = "Allow"
         Action   = ["ssm:TerminateSession", "ssm:ResumeSession", "ssmmessages:OpenDataChannel"]
-        Resource = "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:session/blue-team-*"
+        Resource = "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:session/$${aws:username}-*"
       },
       {
-        Effect   = "Allow"
+        Effect   = "Deny"
         Action   = "sts:AssumeRole"
         Resource = aws_iam_role.blue_defence.arn
       },
@@ -173,12 +182,12 @@ resource "aws_iam_policy" "blue" {
         Sid      = "BootstrapOwnPasswordAndMFA"
         Effect   = "Allow"
         Action   = ["iam:GetUser", "iam:ChangePassword", "iam:GetLoginProfile", "iam:ListMFADevices", "iam:EnableMFADevice", "iam:ResyncMFADevice", "iam:DeactivateMFADevice"]
-        Resource = aws_iam_user.blue.arn
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/$${aws:username}"
       },
       {
         Effect   = "Allow"
         Action   = ["iam:CreateVirtualMFADevice", "iam:DeleteVirtualMFADevice"]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:mfa/blue-team*"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:mfa/$${aws:username}*"
       },
       {
         Effect   = "Allow"

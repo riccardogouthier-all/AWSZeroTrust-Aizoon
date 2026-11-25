@@ -1,5 +1,6 @@
 """Runs on SIEM as administrator. Password leaves the node only RSA-encrypted."""
 import base64
+from fnmatch import fnmatchcase
 import json
 from pathlib import Path
 import re
@@ -14,10 +15,13 @@ from urllib.parse import quote, urlencode
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-USER = "blue-team"
+USER = globals().get("BLUE_USERNAME", "blue-team")
+assert USER in {"blue-team", "blue-verifica"}
 ROOT = Path("/opt/blue-team")
+if USER != "blue-team":
+    ROOT /= USER
 ROOT.mkdir(mode=0o700, exist_ok=True)
-envelope = ROOT / "blue-team-handoff.enc"
+envelope = ROOT / f"{USER}-handoff.enc"
 with tarfile.open("/opt/aizoon/wazuh-install-files.tar") as archive:
     member = next(m for m in archive.getmembers() if m.name.endswith("wazuh-passwords.txt"))
     password_file = archive.extractfile(member).read().decode()
@@ -67,14 +71,22 @@ def index(path, method="GET", data=None, expected=(200,)):
 
 status, existing = index("/_plugins/_security/api/internalusers/" + USER, expected=(200, 404))
 assert status == 404 or envelope.exists(), "Existing user has no matching handoff; do not reset it"
-index("/_plugins/_security/api/roles/blue_team_logs_ro", "PUT", {
+index_role_path = "/_plugins/_security/api/roles/blue_team_logs_ro"
+index_role = {
     "cluster_permissions": ["cluster_composite_ops_ro"],
     "index_permissions": [{
         "index_patterns": ["wazuh-*", ".kibana*", ".opensearch_dashboards*"],
         "allowed_actions": ["read"],
     }],
     "tenant_permissions": [{"tenant_patterns": ["global_tenant"], "allowed_actions": ["kibana_all_read"]}],
-}, expected=(200, 201))
+}
+if USER == "blue-team":
+    index(index_role_path, "PUT", index_role, expected=(200, 201))
+else:
+    index(index_role_path)
+    _, source = index("/_plugins/_security/api/internalusers/blue-team")
+    assert set(source["blue-team"]["opendistro_security_roles"]) == {"blue_team_logs_ro"}
+    assert set(source["blue-team"]["backend_roles"]) == {"blue_team_readonly"}
 
 new_password = None
 if status == 404:
@@ -100,7 +112,17 @@ else:
 dashboard_context = ssl.create_default_context(cafile="/etc/wazuh-indexer/certs/root-ca.pem")
 dashboard_context.check_hostname = False
 dashboard_headers = {"Authorization": index_admin, "osd-xsrf": "true", "Content-Type": "application/json"}
-for pattern in ("wazuh-alerts-*", "wazuh-monitoring-*", "wazuh-statistics-*"):
+_, state_indices = index("/wazuh-states-*/_alias?ignore_unavailable=true&allow_no_indices=true")
+inventory_types = (
+    "browser-extensions", "groups", "hardware", "hotfixes", "interfaces",
+    "networks", "packages", "ports", "processes", "protocols", "services", "system", "users",
+)
+state_patterns = ["wazuh-states-inventory-*", "wazuh-states-vulnerabilities-*"]
+state_patterns += [f"wazuh-states-inventory-{kind}-*" for kind in inventory_types]
+patterns = ["wazuh-alerts-*", "wazuh-monitoring-*", "wazuh-statistics-*"]
+patterns += [pattern for pattern in state_patterns if any(fnmatchcase(name, pattern) for name in state_indices)]
+meta_fields = ("_source", "_id", "_type", "_index", "_score")
+for pattern in patterns:
     saved_url = "https://127.0.0.1/api/saved_objects/index-pattern/" + quote(pattern, safe="")
     try:
         with urllib.request.urlopen(urllib.request.Request(saved_url, headers=dashboard_headers),
@@ -110,7 +132,9 @@ for pattern in ("wazuh-alerts-*", "wazuh-monitoring-*", "wazuh-statistics-*"):
     except urllib.error.HTTPError as error:
         assert error.code == 404, f"Dashboard pattern lookup: HTTP {error.code}"
         error.close()
-    fields_url = "https://127.0.0.1/api/index_patterns/_fields_for_wildcard?" + urlencode({"pattern": pattern})
+    fields_url = "https://127.0.0.1/api/index_patterns/_fields_for_wildcard?" + urlencode(
+        {"pattern": pattern, "meta_fields": meta_fields}, doseq=True,
+    )
     with urllib.request.urlopen(urllib.request.Request(fields_url, headers=dashboard_headers),
                                 context=dashboard_context, timeout=30) as response:
         fields = json.load(response)["fields"]
@@ -138,10 +162,11 @@ rules = api("/security/rules")["data"]["affected_items"]
 # Match the same context key used by this installed dashboard's admin mapping.
 context_key = next(key for rule in rules for key in ("user_name", "username")
                    if rule.get("rule", {}).get("FIND", {}).get(key) == "admin")
-match_rule = next((rule for rule in rules if rule["name"] == "blue_team_readonly"), None)
+mapping_name = "blue_team_readonly" if USER == "blue-team" else "blue_verifica_readonly"
+match_rule = next((rule for rule in rules if rule["name"] == mapping_name), None)
 desired_rule = {"FIND": {context_key: USER}}
 if match_rule is None:
-    match_rule = api("/security/rules", "POST", {"name": "blue_team_readonly", "rule": desired_rule})["data"]["affected_items"][0]
+    match_rule = api("/security/rules", "POST", {"name": mapping_name, "rule": desired_rule})["data"]["affected_items"][0]
 else:
     assert match_rule["rule"] == desired_rule
 assert set(match_rule.get("roles", [])) <= {readonly["id"]}, "Unexpected privileged mapping"
@@ -161,7 +186,7 @@ for attempt in range(10):
 else:
     raise RuntimeError("Read-only mapping did not become available")
 denied, _ = request(api_base, f"/security/rules/{match_rule['id']}", readonly_token, api_context,
-                    "PUT", {"name": "blue_team_readonly", "rule": desired_rule}, expected=(403,))
+                    "PUT", {"name": mapping_name, "rule": desired_rule}, expected=(403,))
 verification = {"manager_role": "readonly", "agents_read": agents["data"]["total_affected_items"],
                 "security_administration_denied": denied == 403}
 if new_password:

@@ -2,6 +2,8 @@
 
 **Francesco vi consegna le credenziali privatamente. Le password AWS e Wazuh sono diverse.**
 
+L’utente AWS `blue-team` basta per consultare e modificare le difese. Per il collaudo, Francesco usa `blue-verifica` con lo stesso gruppo IAM e un proprio dispositivo MFA. In quel caso sostituisce `blue-team` con `blue-verifica` nei comandi e nel login Wazuh.
+
 ## 1. Console AWS
 
 1. Apri [la console del laboratorio](https://515917620173.signin.aws.amazon.com/console/).
@@ -37,12 +39,16 @@ Se la pagina è irraggiungibile, in un secondo PowerShell esegui `Test-NetConnec
 
 ## 3. Per modificare le difese live
 
-Nella console AWS scegli **Cambia ruolo / Switch role**:
+Dallo stesso profilo CLI autenticato con MFA, scegli il nodo:
 
-- Account: **`515917620173`**.
-- Ruolo: **`aizoon-personal-BlueDefence`**.
+```powershell
+# WAF
+aws ssm start-session --profile blue-team --region us-east-1 --target i-0fe2d9e03e1dbd54f --document-name SessionDocument-aizoon-personal-BlueDefence
+# SIEM
+aws ssm start-session --profile blue-team --region us-east-1 --target i-05e152bb6ec353ac1 --document-name SessionDocument-aizoon-personal-BlueDefence
+```
 
-Poi apri **Systems Manager → Session Manager → Avvia sessione**, scegli **WAF o SIEM** e il documento **`SessionDocument-aizoon-personal-BlueDefence`**. Avrai una shell con `sudo`, registrata, per massimo un'ora.
+La sessione apre Bash con `sudo` sul nodo scelto, viene registrata su CloudWatch e dura al massimo un’ora. Se la sessione era già aperta, chiudila e riaprila per usare Bash. La dashboard Wazuh resta in sola lettura.
 
 [Comandi per la difesa live](../../AWS%20ACA/Agosta/v3.1/docs/DIFESA_LIVE.md).
 
