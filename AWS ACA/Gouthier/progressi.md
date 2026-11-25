@@ -36,13 +36,14 @@ Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/
 | 19 nov | Integrazione delle difese Cyber sul lab; classificazione audit WAF in Wazuh; correlazione ModSecurity 10011 → Wazuh 110213 | Verificata; restano le altre classificazioni |
 | 19 nov | Ansible integrato in v3.1: verifica via SSM sulle tre EC2 esistenti, play WEB `changed=0 failed=0`; Terraform `fmt`/`validate` passati | Fatto |
 | 19 nov | Checkov 3.4.6: Terraform 176 pass / 18 finding, Ansible 4 pass / 5 finding, Ansible Cyber 7 / 3 | Eseguito, finding da rivedere |
-| 19 nov | Accesso Blue Team: login AWS CLI con MFA confermato in CloudTrail; corretto il controllo IAM SSM e il tunnel Wazuh | Fatto; pagina da confermare dal browser dell'operatore |
+| 19 nov | Accesso Blue Team: login AWS CLI con MFA confermato in CloudTrail; corretto il controllo IAM SSM e il tunnel Wazuh | Fatto; pagina Wazuh poi verificata il 25 nov con `blue-team` e `blue-verifica` |
 | 19 nov | Tre EC2 verificate operative, poi fermate; budget a 35 USD con stop automatico riarmato | Fatto |
 | 19 nov | Documentazione centralizzata (`attuale/`, `old/`) | Fatto |
 | 25 nov | Riavvio WAF, WEB e SIEM | Tre EC2 `running` e online in SSM, homepage HTTPS 200 |
 | 25 nov | Un account operativo `blue-team` con MFA e profilo di verifica separato `blue-verifica` con gli stessi permessi | 58 verifiche di policy superate |
 | 25 nov | Bash predefinito nel documento SSM `BlueDefence` v2 | Avvio e log CloudWatch verificati su WAF e SIEM con l'account amministrativo, Backspace e Canc verificati sul WAF |
 | 25 nov | Wazuh 4.14.10, inizializzate 18 viste, impostato `checks.fields: false` e applicato `patch_wazuh_readonly.sh` | Apertura e refresh di WEB verificati con `blue-team` e `blue-verifica` in sola lettura |
+| 25 nov | Commit `fd83348` "completa gli accessi Blue Team": modifiche a `lab.py`, `blue-team.tf`, `provision_wazuh_blue.py`, `verify_blue_access.py`, nuovo `patch_wazuh_readonly.sh`; aggiornati README v3.1, `DIFESA_LIVE.md` e `ACCESSO_BLUE_TEAM_v3.1.md` | Fatto; la modifica Terraform di `blue-team.tf` va applicata solo dopo plan revisionato |
 
 Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo chiusi, nessuna chiave API permanente per Blue.
 
@@ -59,6 +60,7 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 | Restore completo del backup non eseguito | Cloud |
 | Test browser con bypass TLS; verifica CA/SAN separata | Cloud |
 | GitHub Actions con approvazione non implementato | Cloud |
+| Budget 35 USD superato al riavvio del 25/11 con stop già eseguito: verificare consumo e decidere soglia o azione di stop | Cloud |
 | Piano FREE con scadenza rilevata il 28/11/2026; budget AWS ritardato | Cloud |
 | Retention archivi e indici; enrollment agenti protetto solo dai security group | Cloud + Blue |
 | Esiti applicativi delle sfide (WEB, IAM, UI, BUILD, OPS, WEB3) | Titolari indicati in `sfide.csv` |
@@ -78,7 +80,7 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 
 ### Team Cloud
 
-1. Decidere sul piano crediti: la scadenza rilevata del piano FREE è il 28/11, a tre giorni.
+1. Decidere sul piano crediti (scadenza rilevata del piano FREE il 28/11, a tre giorni) e sul budget da 35 USD, già superato al riavvio del 25/11.
 2. Provare il restore completo del backup su tutti e tre i nodi.
 3. Misurare il SIEM (ritardo marker, RAM, disco, iowait) e decidere il dimensionamento a 4 vCPU/8 GiB.
 4. Collaudare il bootstrap Ansible su EC2 nuove e rivedere i finding Checkov.

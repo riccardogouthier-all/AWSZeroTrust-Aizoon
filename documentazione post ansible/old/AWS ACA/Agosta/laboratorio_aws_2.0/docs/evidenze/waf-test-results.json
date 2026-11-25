@@ -1,9 +1,0 @@
-{
-  "detection_only_probe_status": 200,
-  "blocking_command": "3d2f4487-2dd2-4f4c-af25-eaf9d1f4c5b4",
-  "blocking_probe_status": 403,
-  "blocking_normal_page_status": 200,
-  "restore_baseline_command": "d42ca8e5-5cd3-4455-aaf8-c69b50da71bc",
-  "final_normal_page_status": 200,
-  "final_mode": "DetectionOnly"
-}
