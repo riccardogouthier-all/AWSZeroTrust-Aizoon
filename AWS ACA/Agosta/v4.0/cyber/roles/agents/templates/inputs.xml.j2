@@ -1,0 +1,20 @@
+{% if inventory_hostname in groups.waf %}
+  <localfile>
+    <location>/opt/blue-team/logs/access.log</location>
+    <log_format>apache</log_format>
+  </localfile>
+  <localfile>
+    <location>/opt/blue-team/logs/error.log</location>
+    <log_format>syslog</log_format>
+  </localfile>
+  <localfile>
+    <location>/opt/blue-team/logs/modsec_audit.log</location>
+    <log_format>syslog</log_format>
+    <out_format>bt_waf_audit $(log)</out_format>
+  </localfile>
+{% else %}
+  <localfile>
+    <location>{{ bt_docker_log.stdout.split(' ', 1)[1] | e }}</location>
+    <log_format>json</log_format>
+  </localfile>
+{% endif %}

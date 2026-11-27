@@ -1,10 +1,12 @@
-# Progressi progetto — Laboratorio AWS v3.1
+# Progressi progetto — Laboratorio AWS 4.0
 
-**Perimetro:** versione 3.1 (`AWS ACA/Agosta/v3.1`) e contributi Cyber integrati (`Cyber CYS/Defence/Finocchielli`) · **Stato al:** 27 novembre 2026 · **Redatto da:** coordinamento progetto
+**Perimetro:** versione 4.0 (`AWS ACA/Agosta/v4.0`) e contributi Cyber integrati (`Cyber CYS/Defence/Finocchielli`) · **Stato al:** 27 novembre 2026 · **Redatto da:** coordinamento progetto
 
 ## 1. Sintesi
 
-Il laboratorio v3.1 è distribuito sull'account personale, con WAF in `DetectionOnly`. Sono stati verificati backup e restore, bootstrap Ansible su tre EC2 nuove, TLS con CA del lab, accesso Wazuh in sola lettura e migrazione dello state su S3. Il nuovo account ripartirà da Terraform e Ansible con dati vuoti. Restano l'attivazione dell'approvazione GitHub, le verifiche nel nuovo account e le prove Cyber già pianificate.
+Il laboratorio Free 3.1 è in servizio sull'account personale con WAF in `DetectionOnly`. La 4.0 raccoglie le modifiche preparate per il nuovo lab. Sono stati verificati backup e restore, bootstrap Ansible su tre EC2 nuove, TLS con CA del lab, accesso Wazuh in sola lettura e migrazione dello state su S3. Il nuovo account ripartirà da Terraform e Ansible con dati vuoti. Restano le verifiche nel nuovo account e le prove Cyber. GitHub Actions è sospeso fino alla disponibilità del repository.
+
+[Documentazione 4.0](../../documentazione/attuale/AWS%20ACA/Agosta/v4.0/README.md) e [rapporto di rilascio](../../documentazione/attuale/AWS%20ACA/Agosta/v4.0/docs/RILASCIO_4.0.md).
 
 ## 2. Architettura
 
@@ -15,19 +17,19 @@ Il laboratorio v3.1 è distribuito sull'account personale, con WAF in `Detection
 | WEB | t3.small, 20 GiB, 10.20.2.10; Juice Shop:3000 da digest Terraform; nessun IP pubblico |
 | SIEM | m7i-flex.large (2 vCPU/8 GiB/50 GiB), 10.20.2.11; Wazuh 4.14.10; nessun IP pubblico |
 | Gestione | SSM, SSH chiuso, IMDSv2, EBS cifrati, ruoli EC2/Backup dedicati |
-| Telemetria | 13 allarmi, metriche memoria/disco/HTTPS, syslog CloudWatch, Flow Logs su S3, SNS→SQS |
+| Telemetria | 14 allarmi, metriche memoria/disco/HTTPS, syslog CloudWatch, Flow Logs su S3, SNS→SQS |
 | Backup | Tre EC2, ogni sei ore, conservazione sette giorni |
 | Costi | Budget 35 USD/mese prima dei crediti. Al riavvio del 25 novembre la soglia era superata e l'azione di stop risultava già eseguita. |
 
 Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/443. TLS con CA privata e SAN IP. Juice Shop è intenzionalmente vulnerabile: nessun dato reale.
 
-**Configurazione.** Il controller invia il playbook Ansible via SSM Run Command; Ansible gira localmente sulle EC2. WEB: installa Docker e crea il container Juice Shop dal digest, senza ricrearlo se esiste. WAF: bootstrap, monitor HTTPS, CA privata. SIEM: controlli su installazioni parziali e checksum dell'installer, utente Blue Team, regola padre 100100. Un nuovo stack usa il profilo Ansible; sullo state esistente impostare `configure_with_ansible=false` prima del plan.
+**Configurazione.** Il controller invia il playbook Ansible via SSM Run Command; Ansible gira localmente sulle EC2. WEB: installa Docker. Per una nuova istanza, Ansible crea il container dal digest su un bridge dedicato con egress bloccato. Un container preesistente viene preservato. WAF: bootstrap, monitor HTTPS, CA privata. SIEM: controlli su installazioni parziali e checksum dell'installer, utente Blue Team, regola padre 100100. Un nuovo stack usa il profilo Ansible; sullo state esistente impostare `configure_with_ansible=false` prima del plan.
 
 **Difese Cyber integrate.** `apply_cyber.py` distribuisce senza reinstallare Wazuh la regola ModSecurity 10001 (sonda), le regole 10011–10015, l'audit JSON AHZ inoltrato come syslog `bt_waf_audit`, i template degli agenti e le classificazioni Wazuh 110213–110217. La matrice `sfide.csv` associa una difesa a ciascuna delle 118 sfide Juice Shop v20.4.0 (44 WEB, 19 IAM, 15 BUILD, 13 CRS, 8 con regole dedicate, 5 UI, 5 OPS, 5 PUB, 3 WEB3; 18 disabilitate in Docker). Il profilo Ansible per VM dedicate di Finocchielli non si usa sul lab: non eseguire `site.yml`.
 
 ## 3. Step eseguiti
 
-Il 27 novembre AWS Backup è passato a quattro esecuzioni al giorno (02:00, 08:00, 14:00 e 20:00 UTC), con conservazione di sette giorni e RPO di 12 ore verificabile con `verify_recovery_points.py`. I backup manuali di transizione risultano completati per WAF, WEB e SIEM. Nel nuovo account si riparte con dati vuoti.
+Il 27 novembre AWS Backup è passato a quattro esecuzioni al giorno (02:00, 08:00, 14:00 e 20:00 UTC), con conservazione di sette giorni e RPO di 12 ore verificabile con `verify_recovery_points.py`. Il backup manuale del 27 novembre ha completato WAF, WEB e SIEM alle 18:12 CET. Verificati i recovery point, le AMI, la cifratura degli snapshot e i servizi dopo il backup. Il controllo di età è passato per tutti e tre. L'allarme per job falliti, scaduti o abortiti è attivo sul vault del lab Free. Nel nuovo account si riparte con dati vuoti.
 
 Il restore da AWS Backup ha ricreato i tre nodi in una VPC isolata. Verificati HTTPS con CA, proxy verso WEB, servizi e regole del SIEM, file degli alert e ricezione di una nuova sonda WAF. I job AWS sono durati circa 77 secondi ciascuno, prima della configurazione di accesso e delle verifiche applicative.
 
@@ -35,9 +37,9 @@ Sul SIEM attivo (2 vCPU / 8 GiB), il campione leggero ha mostrato 4.834 MiB di R
 
 TLS verificato con la CA del lab, IP SAN corrispondente e scadenza del certificato server al 13 dicembre 2026 UTC. Chromium, Firefox e WebKit hanno superato i test desktop e mobile con la CA attendibile e senza bypass.
 
-State del lab Free migrato su S3 con cifratura, versioning e lock nativo. Le 70 risorse e tutti gli output coincidono con la copia privata pre-migrazione. Terraform ha assegnato una nuova lineage al backend. Il workflow GitHub Actions è in preparazione. Per l'approvazione serve la configurazione dell'environment da parte del proprietario del repository.
+State del lab Free migrato su S3 con cifratura, versioning e lock nativo. Le 70 risorse e tutti gli output coincidono con la copia privata pre-migrazione. Terraform ha assegnato una nuova lineage al backend. Il collaudo dell'approvazione GitHub è sospeso fino alla disponibilità del repository.
 
-Il ramo `codex/dr-lab` ha superato Terraform Validate e la scansione Checkov nel [run GitHub Actions](https://github.com/riccardogouthier-all/AWSZeroTrust-Aizoon/actions/runs/46036325347). Il deploy resta in attesa dell'environment protetto. Nel lab Free il profilo EC2 nega le letture di Parameter Store. Verificati diniego e comandi SSM su tutti e tre i nodi.
+Il ramo `codex/dr-lab` ha superato Terraform Validate e la scansione Checkov nel [run GitHub Actions](https://github.com/riccardogouthier-all/AWSZeroTrust-Aizoon/actions/runs/46036325347). In quel run è stata eseguita la validazione. Nel lab Free il profilo EC2 nega le letture di Parameter Store. Verificati diniego e comandi SSM su tutti e tre i nodi.
 
 L'installer ufficiale Wazuh 4.14 ora seleziona la 4.14.11. Il bootstrap richiede versione e SHA-256 revisionati. Sulle tre EC2 private nuove sono passati bootstrap, adattatore Cyber e verifica Ansible. Il test browser Blue Team su 4.14.11 ha aperto e ricaricato WEB senza richieste di scrittura sulle viste. La correzione è idempotente insieme alla configurazione della retention. Il SIEM in servizio resta sulla 4.14.10.
 
@@ -66,6 +68,8 @@ Provati 80 marker innocui a due richieste al secondo sul SIEM di prova. Ricevuti
 
 Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo chiusi, nessuna chiave API permanente per Blue.
 
+Il filtro egress del container WEB è stato verificato su una EC2 temporanea. HTTPS dall'host e ingresso dal WAF hanno funzionato prima e dopo il riavvio di Docker. Il secondo passaggio Ansible ha riportato zero modifiche. Un test del pacchetto SSM verifica che lo script di rete conservi lo shebang richiesto da systemd. Il WEB attivo nel lab Free mantiene la configurazione originaria.
+
 ## 4. Punti aperti
 
 | Punto | Titolare |
@@ -73,10 +77,10 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 | Collaudo dal vivo di 10012–10015 e delle classificazioni 110214–110217 | Blue |
 | Blocco WAF non attivato | Blue |
 | Sessione SSM `BlueDefence` da collaudare con l'MFA dell'operatore dal proprio PC | Blue |
-| Bootstrap Ansible su tre EC2 nuove (incluso l'installer Wazuh) non collaudato | Cloud |
-| Checkov su tutto il repository. Finding analizzati in [Revisione Checkov](../../documentazione/attuale/AWS%20ACA/Agosta/v3.1/docs/CHECKOV.md). | Cloud |
+| Ripetere nel nuovo account il bootstrap Ansible su tre EC2 e la verifica Wazuh in sola lettura | Cloud |
+| Rivedere i finding al cambio account. La scansione completa 4.0 è in [Revisione Checkov](../../documentazione/attuale/AWS%20ACA/Agosta/v4.0/docs/CHECKOV.md). | Cloud |
 | Ripetere la misura SIEM durante una lezione se cresce il carico rispetto alla prova da due richieste al secondo. | Cloud |
-| GitHub Actions con approvazione non implementato | Cloud |
+| GitHub Actions con approvazione sospeso fino alla disponibilità del repository | Cloud |
 | Budget 35 USD superato al riavvio del 25/11 con stop già eseguito: verificare consumo e decidere soglia o azione di stop | Cloud |
 | Piano FREE con scadenza rilevata il 28/11/2026; budget AWS ritardato | Cloud |
 | Retention archivi e indici; enrollment agenti protetto solo dai security group | Cloud + Blue |
@@ -84,9 +88,9 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 
 ## 5. Rischi e vincoli
 
-- Lo state Terraform è locale e privato: non applicare uno state vuoto sul deploy esistente; un'installazione per account (`blue-team` e `BlueTeamLogs` hanno nomi fissi).
+- Lo state Terraform del lab Free risiede su S3 privato: non applicare uno state vuoto sul deploy esistente; un'installazione per account (`blue-team` e `BlueTeamLogs` hanno nomi fissi).
 - Una modifica a `user_data` può sostituire le VM; le modifiche live non tornano da sole nell'IaC. Revisionare sempre il plan.
-- L'installer Wazuh della serie 4.14 è mutabile: verificare la patch 4.14.10 e fornire il SHA-256 dell'installer prima di un nuovo deploy.
+- L'installer Wazuh della serie 4.14 è mutabile: verificare la patch attesa e fornire il SHA-256 dell'installer prima di un nuovo deploy.
 - Il marker 10001 è una sonda di integrazione, non prova la copertura di tutte le famiglie CRS. Un alert indica una corrispondenza, non un attacco bloccato.
 - Una sfida è "previene" solo dopo rifiuto verificato, stato integro e controllo positivo autorizzato.
 - Lo stop delle EC2 lascia costi di NAT, IPv4, EBS, log e backup; lo start è rifiutato se il budget è raggiunto. `destroy` non va usato per fermare le lezioni.
@@ -98,12 +102,12 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 
 ### Team Cloud
 
-1. Decidere sul piano crediti (scadenza rilevata del piano FREE il 28/11, a tre giorni) e sul budget da 35 USD, già superato al riavvio del 25/11.
+1. Decidere sul piano crediti (scadenza rilevata del piano FREE il 28/11) e sul budget da 35 USD, già superato al riavvio del 25/11.
 2. Verificare nel nuovo account permessi, tipi EC2 disponibili e bootstrap da Terraform.
-3. Configurare su GitHub l'environment con approvazione indipendente e verificare l'esecuzione OIDC.
+3. Alla ripresa del collaudo GitHub Actions, configurare l'environment con approvazione indipendente e verificare OIDC.
 4. Controllare nel nuovo lab l'età dei recovery point e la scadenza degli indici Wazuh.
 5. Provare il perimetro del ruolo EC2 dopo il deploy e il filtro egress del container WEB.
-6. Preparare la stima prudenziale dopo le ultime verifiche.
+6. Usare la [stima AWS 4.0](../../documentazione/attuale/AWS%20ACA/Agosta/v4.0/docs/STIMA_COSTI_AWS.md) per dimensionamento e durata. Budget proposto: 150 USD/mese per le lezioni o 250 USD/mese 24/7.
 
 ### Team Cyber — Blue (difesa)
 

@@ -1,0 +1,105 @@
+# AWS Lab 4.0
+
+Terraform crea le risorse AWS. Cloud-init prepara il nodo e CloudWatch. Ansible installa i servizi attraverso SSM. Le configurazioni Cyber assegnano regole WAF, input e classificazioni Wazuh.
+
+## Architettura
+
+| Risorsa | Configurazione |
+|---|---|
+| Rete | us-east-1, una AZ, VPC 10.20/16, subnet 10.20.1/24 pubblica e 10.20.2/24 privata; IGW, NAT, endpoint gateway S3 |
+| WAF | t3.small/20 GiB; 10.20.1.10 + EIP; nginx/ModSecurity/CRS; HTTPS pubblico; DetectionOnly |
+| WEB | t3.small/20 GiB; 10.20.2.10; Juice Shop:3000; nessun IP pubblico |
+| SIEM | m7i-flex.large, 2 vCPU/8 GiB/50 GiB; 10.20.2.11; Wazuh 4.14.11 su nuove installazioni, 4.14.10 in servizio sul Free; nessun IP pubblico |
+| Gestione | SSM; SSH chiuso; IMDSv2; EBS cifrati; ruoli EC2/Backup dedicati |
+| Telemetria | 14 allarmi, memoria/disco/HTTPS, syslog CloudWatch, Flow Logs S3, SNS→SQS |
+| Backup | Tre EC2, ogni sei ore, conservazione sette giorni, obiettivo RPO 12 ore. [DR e retention](docs/DR_E_RETENTION.md) |
+| Costi | AWS Budgets con azione di stop EC2. Budget del progetto in [stima AWS](docs/STIMA_COSTI_AWS.md) |
+
+Flussi SG: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/443. TLS con CA privata e SAN IP. Juice Shop è intenzionalmente vulnerabile: nessun dato reale.
+
+## Deploy
+
+Prerequisiti: Terraform 1.13.5 o compatibile, AWS CLI/plugin SSM, Python ≥3.12, profilo privato con permessi IAM/Cloud. OpenSSL locale o Ubuntu/WSL per i login. Variante non compatibile con i soli permessi ridotti del Learner Lab.
+
+Creare prima il [backend S3](docs/STATE_TERRAFORM.md). Eseguire i comandi PowerShell dalla [cartella del codice 4.0](../../../../../AWS%20ACA/Agosta/v4.0/), con `$bucket` ottenuto dal backend.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m playwright install
+aws sts get-caller-identity
+Copy-Item project/terraform.tfvars.json.example project/terraform.tfvars.json
+terraform -chdir=project init "-backend-config=bucket=$bucket" "-backend-config=region=us-east-1"
+terraform -chdir=project validate
+terraform -chdir=project plan '-out=deploy.tfplan'
+# Apply del piano dopo revisione/approvazione del membro incaricato.
+terraform -chdir=project apply deploy.tfplan
+python lab.py outputs
+python ops.py nodes
+```
+
+Parametri: region/project, nomi ruoli, tester_ipv4_cidrs. `0.0.0.0/0` pubblica solo il WAF. Un’installazione per account per i nomi IAM fissi. Per lo stack già distribuito conservare lo state privato e impostare `configure_with_ansible=false` prima di un eventuale plan. Abilitare il nuovo bootstrap sullo state esistente cambierebbe lo user data e pianificherebbe la sostituzione delle EC2.
+
+Attendere i tre nodi SSM Online. Per un nuovo deploy verificare versione e SHA-256 dell’installer ufficiale Wazuh. Il profilo parte dalla 4.14.11. Per mantenere una installazione esistente in 4.14.10, indicare `--wazuh-version 4.14.10`.
+
+```powershell
+python configure.py --wazuh-version 4.14.11 --wazuh-installer-sha256 <SHA256_REVISIONATO>
+python lab.py ca
+python apply_cyber.py
+python lab.py blue-init
+python lab.py blue-init --blue-user blue-verifica
+```
+
+Il playbook locale su ogni EC2 installa SIEM → WEB → WAF e gli agenti. Riusa i helper AWS per conservare CA privata, health check, nomi e percorsi. Il [playbook Cyber](../../../../../Cyber%20CYS/Defence/Finocchielli/site.yml) resta il riferimento del profilo su VM dedicate.
+
+L'adattatore aggiunge regola 10001, audit JSON AHZ, input e rotazione senza reinstallare Wazuh. blue-init crea login con password fuori dallo state, consegna Wazuh cifrata RSA e cambio password AWS obbligatorio. File in private/, ACL Windows o directory Linux 0700; niente reset automatico di login già esistenti senza handoff.
+
+## Aggiornare un lab esistente
+
+Con WAF in `DetectionOnly`, WAF e SIEM online in SSM e gli output corretti in `evidence/outputs.json`:
+
+```powershell
+python configure.py --verify-only
+python update_cyber_rules.py
+```
+
+Eseguire i comandi separatamente. Il primo può installare `ansible-core` per controllare i servizi esistenti senza rilanciare il bootstrap. Il secondo va eseguito quando si vuole aggiornare le regole Cyber.
+
+Installa le classificazioni Wazuh, verifica gli ID e la configurazione, riavvia il manager e ricarica nginx dopo `nginx -t`. Ripristina il file precedente del componente se la validazione o l’attivazione fallisce. Il comando conserva le impostazioni di archiviazione. Verificare poi l’alert 110213 con una richiesta di controllo innocua, come descritto nella [matrice Cyber](../../../Cyber%20CYS/Defence/Finocchielli/DIFESE-SFIDE.md).
+
+## Verifiche
+
+Prima dell’apply avviare Checkov dalla radice del repository, includendo le directory nascoste e la scansione separata dei segreti. Comandi e finding in [Revisione Checkov](docs/CHECKOV.md).
+
+```powershell
+python -m unittest test_tools -v
+python test_cyber_adapter.py
+python -m unittest discover -s cyber/tests -v
+python verify_blue_access.py
+python verify_cost_protection.py
+python verify_aws.py
+python browser_tests.py
+python waf_tests.py
+```
+
+Primi tre comandi offline. verify_aws crea utente QA, forza un allarme sintetico e avvia un backup se assente; waf_tests cambia temporaneamente la modalità e ripristina DetectionOnly. test_blue_dashboard richiede credenziali private e tunnel locale 8445. Non eseguire i controlli con effetti durante una prova Red non concordata.
+
+## Operazioni
+
+| Procedura | Riferimento |
+|---|---|
+| AWS/Wazuh/BlueDefence | [Accessi in Defence](../../../Cyber%20CYS/Defence/ACCESSO_BLUE_TEAM_v4.0.md) |
+| Start/stop EC2 | [Switch](docs/ACCENSIONE_SPEGNIMENTO.md) |
+| Enforcement, regole, archivi | [Difesa live](docs/DIFESA_LIVE.md) |
+| Stato del rilascio e collaudi | [Rapporto 4.0](docs/RILASCIO_4.0.md) |
+| Budget per AWS | [Stima dei costi](docs/STIMA_COSTI_AWS.md) |
+| Configurazioni del team Cyber | [Riuso, adattamenti e limiti](docs/RIUSO_CYBER.md) |
+
+## Vincoli
+
+State nel backend S3 privato, runtime in `evidence/` e segreti in `private/` sono esclusi da Git. L'installer Wazuh serie 4.14 è mutabile. L'adattatore e la correzione della dashboard supportano 4.14.10 e 4.14.11. Docker a digest e provider nel lockfile. Modifiche a user_data possono sostituire le VM. Le modifiche live vanno riportate nel codice.
+
+Le prove sul SIEM supportano 2 vCPU e 8 GiB al carico misurato. Nel nuovo account ricreare state, utenti e CA e collaudare il bootstrap, il filtro WEB e la retention. Il collaudo GitHub Actions resta sospeso.
+
+Lo stop EC2 lascia costi per NAT, IPv4, EBS, log e snapshot. AWS Budgets valuta la spesa in differita. Usare lo switch per le lezioni e riservare la distruzione Terraform alla dismissione.
