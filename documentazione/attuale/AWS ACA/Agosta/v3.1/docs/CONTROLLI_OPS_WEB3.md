@@ -4,8 +4,8 @@ Perimetro AWS v3.1 e otto righe OPS/WEB3 di `sfide.csv`. Sul lab Free solo il WA
 
 | Righe della matrice | Evidenza e decisione |
 |---|---|
-| OPS · fetch remoto | I security group limitano le porte, ma l'egress HTTP/HTTPS è verso qualunque destinazione. La validazione di destinazioni e redirect appartiene all'applicazione. Per ridurre l'egress del container WEB, provare il filtro separatamente dal traffico del sistema usato da SSM, apt e Docker. |
-| OPS · chiavi esposte e segreti in IaC | IAM Simulator ha negato accesso al backend S3, lettura Secrets Manager e creazione ruoli dal profilo EC2. La policy gestita SSM consente letture generiche in Parameter Store. Il profilo Terraform aggiunge un diniego esplicito per queste letture. Il deploy GitHub usa OIDC e credenziali temporanee dopo approvazione. |
+| OPS · fetch remoto | I security group limitano le porte, ma l'egress HTTP/HTTPS è verso qualunque destinazione. Una richiesta HTTPS innocua avviata dalla rete del container ha risposto 200. La validazione di destinazioni e redirect appartiene all'applicazione. Per ridurre l'egress del container WEB, provare il filtro separatamente dal traffico del sistema usato da SSM, apt e Docker. |
+| OPS · chiavi esposte e segreti in IaC | IAM Simulator ha negato accesso al backend S3, lettura Secrets Manager e creazione ruoli dal profilo EC2. La policy Terraform nega le letture di Parameter Store. Il diniego è stato applicato e verificato da WAF, WEB e SIEM nel lab Free, con SSM operativo. Il deploy GitHub usa OIDC e credenziali temporanee dopo approvazione. |
 | OPS · documenti e immagini | Usare materiale di test senza dati personali. Verificare il contenuto e i metadati prima della pubblicazione. |
 | WEB3 · seed phrase | Nessuna seed o chiave wallet nei file del lab, nelle immagini o nello state. Eventuali credenziali di test appartengono al gestore dei segreti e richiedono una regola di accesso dedicata. |
 | WEB3 · mint e saldo | I controlli di idoneità, uso singolo della prova e invarianti contabili appartengono ai contratti. I test vanno eseguiti su contratti e asset di prova. |

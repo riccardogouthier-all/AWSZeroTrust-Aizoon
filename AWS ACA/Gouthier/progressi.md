@@ -37,6 +37,8 @@ TLS verificato con la CA del lab, IP SAN corrispondente e scadenza del certifica
 
 State del lab Free migrato su S3 con cifratura, versioning e lock nativo. Le 70 risorse e tutti gli output coincidono con la copia privata pre-migrazione. Terraform ha assegnato una nuova lineage al backend. Il workflow GitHub Actions è in preparazione. Per l'approvazione serve la configurazione dell'environment da parte del proprietario del repository.
 
+Il ramo `codex/dr-lab` ha superato Terraform Validate e la scansione Checkov nel [run GitHub Actions](https://github.com/riccardogouthier-all/AWSZeroTrust-Aizoon/actions/runs/46036325347). Il deploy resta in attesa dell'environment protetto. Nel lab Free il profilo EC2 nega le letture di Parameter Store. Verificati diniego e comandi SSM su tutti e tre i nodi.
+
 L'installer ufficiale Wazuh 4.14 ora seleziona la 4.14.11. Il bootstrap richiede versione e SHA-256 revisionati. Sulle tre EC2 private nuove sono passati bootstrap, adattatore Cyber e verifica Ansible. Il test browser Blue Team su 4.14.11 ha aperto e ricaricato WEB senza richieste di scrittura sulle viste. La correzione è idempotente insieme alla configurazione della retention. Il SIEM in servizio resta sulla 4.14.10.
 
 Provati 80 marker innocui a due richieste al secondo sul SIEM di prova. Ricevuti 80/80, p95 1,578 s, CPU mediana 3,5%, iowait massimo 3%, 5.099 MiB disponibili e disco al 40%. Manteniamo 2 vCPU/8 GiB per il carico misurato. L'account Free ha rifiutato `c7i-flex.xlarge`. Il confronto diretto a 4 vCPU resta da ripetere se il carico effettivo lo richiede.

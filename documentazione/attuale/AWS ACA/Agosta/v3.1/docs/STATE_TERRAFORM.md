@@ -16,7 +16,7 @@ Per spostare uno stack esistente, fermare gli apply concorrenti, salvare una cop
 
 ## GitHub Actions
 
-Il proprietario del repository configura l'environment `aws-lab` con un revisore del gruppo, divieto di autoapprovazione e deploy solo da `main`. Verificare che un avvio manuale resti in attesa del revisore prima di collegare il ruolo AWS.
+Il proprietario del repository apre **Settings → Environments → New environment**, crea `aws-lab` e seleziona **Required reviewers** con un membro del gruppo. Attiva **Prevent self-review**, disattiva **Allow administrators to bypass configured protection rules** e salva. In **Deployment branches and tags** seleziona **Selected branches and tags** e aggiunge una regola **Branch** con nome `main`. Verificare che un avvio manuale resti in attesa del revisore prima di collegare il ruolo AWS.
 
 Impostare nell'environment `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_BACKEND_BUCKET`, `AWS_DEPLOY_ROLE_ARN` e `CONFIGURE_WITH_ANSIBLE`. Per un nuovo stack usare `true` e fornire `WAZUH_VERSION` e `WAZUH_INSTALLER_SHA256` dell'installer revisionato. Per lo stack avviato con cloud-init usare `false` per evitare sostituzioni.
 
