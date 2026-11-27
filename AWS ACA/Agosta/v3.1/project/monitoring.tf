@@ -104,7 +104,7 @@ resource "aws_cloudwatch_metric_alarm" "status" {
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 
-# Backup giornaliero delle tre istanze, conservazione 1 giorno.
+# Snapshot ogni 6 ore per un RPO di 12 ore, con margine per la finestra di esecuzione.
 resource "aws_backup_vault" "lab" {
   name          = "${var.project}-backup"
   force_destroy = false
@@ -115,8 +115,10 @@ resource "aws_backup_plan" "lab" {
   rule {
     rule_name         = "daily"
     target_vault_name = aws_backup_vault.lab.name
-    schedule          = "cron(0 2 * * ? *)"
-    lifecycle { delete_after = 1 }
+    schedule          = "cron(0 2,8,14,20 * * ? *)"
+    start_window      = 60
+    completion_window = 180
+    lifecycle { delete_after = 7 }
   }
 }
 

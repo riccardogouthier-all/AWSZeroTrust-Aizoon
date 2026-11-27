@@ -14,6 +14,9 @@ def payload(role, settings, verify_only):
         scripts = {"web": ["agent.sh"], "waf": ["waf.sh", "waf-health.sh", "agent.sh"], "siem": []}
         for name in scripts[role]:
             files[name] = "set -euo pipefail\n" + (ROOT / "project/scripts" / name).read_text(encoding="utf-8")
+        if role == "siem":
+            files["patch_wazuh_readonly.sh"] = (ROOT / "patch_wazuh_readonly.sh").read_text(encoding="utf-8")
+            files["wazuh_retention.py"] = (ROOT / "project/scripts/wazuh_retention.py").read_text(encoding="utf-8")
     files["vars.json"] = json.dumps({"node_role": role, "bootstrap": settings, "verify_only": verify_only})
     bundle = base64.b64encode(zlib.compress(json.dumps(files).encode())).decode()
     return f"""cloud-init status --wait >/dev/null
@@ -39,6 +42,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-only", action="store_true", help="Check existing nodes without running service bootstrap")
     parser.add_argument("--wazuh-installer-sha256", help="SHA-256 of the reviewed official Wazuh installer")
+    parser.add_argument("--wazuh-version", choices=["4.14.10", "4.14.11"], default="4.14.11")
     args = parser.parse_args()
     checked_account()
     state = outputs()
@@ -48,7 +52,11 @@ def main():
     if not args.verify_only:
         if not re.fullmatch(r"[0-9a-fA-F]{64}", args.wazuh_installer_sha256 or ""):
             parser.error("Provide the reviewed installer SHA-256 with --wazuh-installer-sha256.")
-        settings = {**settings, "WAZUH_INSTALLER_SHA256": args.wazuh_installer_sha256.lower()}
+        settings = {
+            **settings,
+            "WAZUH_INSTALLER_SHA256": args.wazuh_installer_sha256.lower(),
+            "WAZUH_VERSION": args.wazuh_version,
+        }
     if SESSION.region_name != state["region"]:
         raise RuntimeError("AWS region does not match Terraform outputs")
     roles = ("siem", "web", "waf")

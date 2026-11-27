@@ -28,6 +28,6 @@ Fonti: /opt/blue-team/logs/{access.log,error.log,modsec_audit.log}; manager arch
 
 L’utente Blue Team con MFA apre direttamente la sessione SSM `SessionDocument-…-BlueDefence`. Ha sudo su WAF/SIEM, con registrazione CloudWatch e durata massima di un’ora. Il login web Wazuh resta in sola lettura. Conservare le modifiche approvate nell’IaC prima di ricreare i nodi.
 
-Su un nuovo SIEM, `blue-init` inizializza le viste degli indici disponibili. Impostare `checks.fields: false` in `/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml` e riavviare `wazuh-dashboard` per evitare scritture automatiche delle viste all'accesso. Se cambiano i mapping, aggiornare i campi delle viste con un account amministrativo.
+Su un nuovo SIEM, Ansible esegue [`patch_wazuh_readonly.sh`](../../../../../../AWS%20ACA/Agosta/v3.1/patch_wazuh_readonly.sh). Lo script accetta Wazuh 4.14.10 o 4.14.11 e richiede una corrispondenza esatta del codice da correggere. Imposta anche `checks.fields: false`, salva gli originali sotto `/root/wazuh-readonly-*` e riavvia la dashboard.
 
-Su Wazuh 4.14.10 eseguire [`patch_wazuh_readonly.sh`](../../../../../../AWS%20ACA/Agosta/v3.1/patch_wazuh_readonly.sh) sul SIEM come root. La selezione delle viste aggiorna i campi in memoria e lascia la scrittura delle viste all'amministratore. Lo script salva i tre file originali sotto `/root/wazuh-readonly-*` per il ripristino. Dopo un aggiornamento di Wazuh, verificare apertura e refresh di WEB con un utente Blue Team.
+`blue-init` inizializza le viste disponibili. Dopo aggiornamenti o modifiche ai mapping, aggiornare i campi delle viste come amministratore e verificare apertura e refresh di WEB con un utente Blue Team.

@@ -12,7 +12,7 @@ Terraform crea le risorse AWS. Cloud-init prepara il nodo e CloudWatch. Ansible 
 | SIEM | m7i-flex.large, 2 vCPU/8 GiB/50 GiB; 10.20.2.11; Wazuh 4.14.10; nessun IP pubblico |
 | Gestione | SSM; SSH chiuso; IMDSv2; EBS cifrati; ruoli EC2/Backup dedicati |
 | Telemetria | 13 allarmi, memoria/disco/HTTPS, syslog CloudWatch, Flow Logs S3, SNS→SQS |
-| Backup | Tre EC2, giornaliero 02:00 UTC, retention un giorno |
+| Backup | Tre EC2, ogni sei ore, conservazione sette giorni, obiettivo RPO 12 ore. [DR e retention](docs/DR_E_RETENTION.md) |
 | Costi | Budget mensile 20 USD pre-crediti; stop automatico delle tre EC2 |
 
 Flussi SG: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/443. TLS con CA privata e SAN IP. Juice Shop è intenzionalmente vulnerabile: nessun dato reale.
@@ -21,7 +21,7 @@ Flussi SG: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 
 
 Prerequisiti: Terraform 1.13.5 o compatibile, AWS CLI/plugin SSM, Python ≥3.12, profilo privato con permessi IAM/Cloud. OpenSSL locale o Ubuntu/WSL per i login. Variante non compatibile con i soli permessi ridotti del Learner Lab.
 
-Eseguire i comandi PowerShell dalla [cartella del codice v3.1](../../../../../AWS%20ACA/Agosta/v3.1/).
+Creare prima il [backend S3](docs/STATE_TERRAFORM.md). Eseguire i comandi PowerShell dalla [cartella del codice v3.1](../../../../../AWS%20ACA/Agosta/v3.1/), con `$bucket` ottenuto dal backend.
 
 ```powershell
 python -m venv .venv
@@ -30,7 +30,7 @@ pip install -r requirements.txt
 python -m playwright install
 aws sts get-caller-identity
 Copy-Item project/terraform.tfvars.json.example project/terraform.tfvars.json
-terraform -chdir=project init
+terraform -chdir=project init "-backend-config=bucket=$bucket" "-backend-config=region=us-east-1"
 terraform -chdir=project validate
 terraform -chdir=project plan '-out=deploy.tfplan'
 # Apply del piano dopo revisione/approvazione del membro incaricato.
@@ -41,10 +41,10 @@ python ops.py nodes
 
 Parametri: region/project, nomi ruoli, tester_ipv4_cidrs. `0.0.0.0/0` pubblica solo il WAF. Un’installazione per account per i nomi IAM fissi. Per lo stack già distribuito conservare lo state privato e impostare `configure_with_ansible=false` prima di un eventuale plan. Abilitare il nuovo bootstrap sullo state esistente cambierebbe lo user data e pianificherebbe la sostituzione delle EC2.
 
-Attendere i tre nodi SSM Online. Per un nuovo deploy usare l’hash dell’installer ufficiale Wazuh 4.14 dopo la revisione del file. La patch attesa è 4.14.10.
+Attendere i tre nodi SSM Online. Per un nuovo deploy verificare versione e SHA-256 dell’installer ufficiale Wazuh. Il profilo parte dalla 4.14.11. Per mantenere una installazione esistente in 4.14.10, indicare `--wazuh-version 4.14.10`.
 
 ```powershell
-python configure.py --wazuh-installer-sha256 <SHA256_REVISIONATO>
+python configure.py --wazuh-version 4.14.11 --wazuh-installer-sha256 <SHA256_REVISIONATO>
 python lab.py ca
 python apply_cyber.py
 python lab.py blue-init
@@ -98,7 +98,7 @@ Primi tre comandi offline. verify_aws crea utente QA, forza un allarme sintetico
 
 ## Vincoli
 
-State locale, runtime in evidence/, segreti in private/: esclusi da Git. Installer Wazuh serie 4.14 mutabile; l'adattatore richiede 4.14.10: verificare patch prima di un nuovo deploy. Docker a digest e provider nel lockfile. Modifiche user_data possono sostituire le VM; modifiche live non tornano automaticamente nell'IaC.
+State nel backend S3 privato, runtime in `evidence/` e segreti in `private/` sono esclusi da Git. L'installer Wazuh serie 4.14 è mutabile. L'adattatore e la correzione della dashboard supportano 4.14.10 e 4.14.11. Docker a digest e provider nel lockfile. Modifiche a user_data possono sostituire le VM. Le modifiche live vanno riportate nel codice.
 
 SIEM sotto il riferimento di 4 vCPU; niente stress test, telefoni fisici, restore completo personale o nuovo deploy integrale del pacchetto Git. Login AWS/MFA del membro ancora da completare; login Wazuh readonly verificato. GitHub Actions con approvazione ancora da implementare.
 

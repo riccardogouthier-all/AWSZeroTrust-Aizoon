@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.9, < 2"
+  required_version = ">= 1.10, < 2"
 
   required_providers {
     aws = {
@@ -8,14 +8,11 @@ terraform {
     }
   }
 
-  # State locale di default. Backend S3 opzionale (bucket creato a mano, con versioning):
-  # backend "s3" {
-  #   bucket       = "<bucket-tfstate>"
-  #   key          = "lab/terraform.tfstate"
-  #   region       = "us-east-1"
-  #   use_lockfile = true
-  #   encrypt      = true
-  # }
+  backend "s3" {
+    key          = "lab/terraform.tfstate"
+    use_lockfile = true
+    encrypt      = true
+  }
 }
 
 provider "aws" {

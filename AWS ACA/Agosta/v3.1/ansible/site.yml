@@ -28,6 +28,10 @@
                 dest: /opt/aizoon/wazuh-install.sh
                 checksum: "sha256:{{ bootstrap.WAZUH_INSTALLER_SHA256 }}"
                 mode: '0700'
+            - name: Confirm the reviewed installer targets the selected release
+              ansible.builtin.command:
+                argv: [grep, -Fqx, 'readonly wazuh_version="{{ bootstrap.WAZUH_VERSION }}"', /opt/aizoon/wazuh-install.sh]
+              changed_when: false
             - name: Run the installer with a private log
               ansible.builtin.shell: |
                 umask 077
@@ -42,7 +46,61 @@
           loop: [wazuh-manager, wazuh-indexer, wazuh-dashboard]
           register: wazuh_version
           changed_when: false
-          failed_when: wazuh_version.rc != 0 or wazuh_version.stdout.split('-')[0] != '4.14.10'
+          failed_when: wazuh_version.rc != 0 or wazuh_version.stdout.split('-')[0] != bootstrap.WAZUH_VERSION
+        - name: Keep dashboard data sources read-only
+          ansible.builtin.script:
+            cmd: patch_wazuh_readonly.sh
+            executable: /bin/bash
+          register: readonly_patch
+          changed_when: "'read-only patch installed.' in readonly_patch.stdout"
+        - name: Install SIEM retention program
+          ansible.builtin.copy:
+            src: wazuh_retention.py
+            dest: /opt/aizoon/wazuh_retention.py
+            owner: root
+            group: root
+            mode: '0700'
+        - name: Verify OpenSearch time-series retention
+          ansible.builtin.command: /usr/bin/python3 /opt/aizoon/wazuh_retention.py
+          register: retention
+          retries: 12
+          delay: 5
+          until: retention.rc == 0
+          changed_when: "'Created retention policy:' in retention.stdout"
+        - name: Install raw archive retention service
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/aizoon-archive-retention.service
+            mode: '0644'
+            content: |
+              [Unit]
+              Description=Remove old Wazuh rotated archives
+
+              [Service]
+              Type=oneshot
+              ExecStart=/usr/bin/python3 /opt/aizoon/wazuh_retention.py --prune
+              NoNewPrivileges=yes
+              ProtectSystem=strict
+              ReadWritePaths=/var/ossec/logs/archives
+        - name: Schedule raw archive retention
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/aizoon-archive-retention.timer
+            mode: '0644'
+            content: |
+              [Unit]
+              Description=Daily Wazuh archive retention
+
+              [Timer]
+              OnCalendar=daily
+              Persistent=true
+
+              [Install]
+              WantedBy=timers.target
+        - name: Enable the archive retention timer
+          ansible.builtin.systemd_service:
+            name: aizoon-archive-retention.timer
+            enabled: true
+            state: started
+            daemon_reload: true
         - name: Install the AWS base rule for audit classification
           ansible.builtin.copy:
             dest: /var/ossec/etc/rules/aizoon_rules.xml

@@ -1,4 +1,4 @@
-"""Functional browser checks; TLS identity is verified separately with lab-ca.crt."""
+"""Functional browser checks using the lab CA trusted by the test runner."""
 import json
 import ssl
 import urllib.request
@@ -15,11 +15,12 @@ assert products["status"] == "success" and products["data"], "Product search fai
 results = []
 with sync_playwright() as playwright:
     for engine in ["chromium", "firefox", "webkit"]:
-        browser = getattr(playwright, engine).launch()
+        options = {"firefox_user_prefs": {"security.enterprise_roots.enabled": True}} if engine == "firefox" else {}
+        browser = getattr(playwright, engine).launch(**options)
         for mobile in [False, True]:
-            # Keep the generated CA out of the user's operating-system trust store.
-            # Browser contexts bypass CA trust only; urllib above verifies chain and IP SAN.
-            session = browser.new_context(ignore_https_errors=True, viewport={"width": 390 if mobile else 1440, "height": 844 if mobile else 1000})
+            session = browser.new_context(
+                viewport={"width": 390 if mobile else 1440, "height": 844 if mobile else 1000},
+            )
             page = session.new_page()
             failures = []
             page.on("pageerror", lambda error: failures.append(str(error)))
@@ -39,7 +40,7 @@ with sync_playwright() as playwright:
             page.goto(url + "/#/login", wait_until="networkidle")
             page.locator("#email").wait_for(state="visible")
             assert page.locator("#password").is_visible()
-            result = {"engine": engine, "viewport": "mobile" if mobile else "desktop", "status": response.status, "title": page.title(), "product_cards": product_count, "login_form": True, "javascript_errors": failures, "screenshot": screenshot.name, "browser_ca_trust_bypassed": True}
+            result = {"engine": engine, "viewport": "mobile" if mobile else "desktop", "status": response.status, "title": page.title(), "product_cards": product_count, "login_form": True, "javascript_errors": failures, "screenshot": screenshot.name, "browser_ca_trust_bypassed": False}
             results.append(result)
             print(json.dumps(result), flush=True)
             session.close()

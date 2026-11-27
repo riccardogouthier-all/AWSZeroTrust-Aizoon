@@ -1,10 +1,10 @@
 # Progressi progetto — Laboratorio AWS v3.1
 
-**Perimetro:** solo la versione 3.1 (`AWS ACA/Agosta/v3.1`), la versione finale su cui si faranno tutte le modifiche, con i contributi Cyber che vi sono integrati (`Cyber CYS/Defence/Finocchielli`) · **Stato al:** 25 novembre 2026 · **Redatto da:** coordinamento progetto
+**Perimetro:** versione 3.1 (`AWS ACA/Agosta/v3.1`) e contributi Cyber integrati (`Cyber CYS/Defence/Finocchielli`) · **Stato al:** 27 novembre 2026 · **Redatto da:** coordinamento progetto
 
 ## 1. Sintesi
 
-Il laboratorio v3.1 è distribuito e verificato sull'account personale: tre EC2 (WAF, WEB, SIEM), telemetria, backup, protezione costi, switch di accensione/spegnimento, configurazione con Ansible via SSM e difese Cyber integrate. Il 25 novembre le tre EC2 sono state riavviate e verificate operative. Il WAF è in `DetectionOnly`. Restano aperte le prove sulle regole rimaste, il passaggio al blocco, il bootstrap su EC2 nuove, la revisione dei finding Checkov e gli interventi di ridondanza e sicurezza (sezione 7).
+Il laboratorio v3.1 è distribuito sull'account personale, con WAF in `DetectionOnly`. Sono stati verificati backup e restore, bootstrap Ansible su tre EC2 nuove, TLS con CA del lab, accesso Wazuh in sola lettura e migrazione dello state su S3. Il nuovo account ripartirà da Terraform e Ansible con dati vuoti. Restano l'attivazione dell'approvazione GitHub, le verifiche nel nuovo account e le prove Cyber già pianificate.
 
 ## 2. Architettura
 
@@ -16,7 +16,7 @@ Il laboratorio v3.1 è distribuito e verificato sull'account personale: tre EC2 
 | SIEM | m7i-flex.large (2 vCPU/8 GiB/50 GiB), 10.20.2.11; Wazuh 4.14.10; nessun IP pubblico |
 | Gestione | SSM, SSH chiuso, IMDSv2, EBS cifrati, ruoli EC2/Backup dedicati |
 | Telemetria | 13 allarmi, metriche memoria/disco/HTTPS, syslog CloudWatch, Flow Logs su S3, SNS→SQS |
-| Backup | Tre EC2, giornaliero 02:00 UTC, retention un giorno |
+| Backup | Tre EC2, ogni sei ore, conservazione sette giorni |
 | Costi | Budget 35 USD/mese prima dei crediti. Al riavvio del 25 novembre la soglia era superata e l'azione di stop risultava già eseguita. |
 
 Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/443. TLS con CA privata e SAN IP. Juice Shop è intenzionalmente vulnerabile: nessun dato reale.
@@ -26,6 +26,20 @@ Flussi: Internet→WAF:443; WAF→WEB:3000; WAF/WEB→SIEM:1514/1515; uscita 80/
 **Difese Cyber integrate.** `apply_cyber.py` distribuisce senza reinstallare Wazuh la regola ModSecurity 10001 (sonda), le regole 10011–10015, l'audit JSON AHZ inoltrato come syslog `bt_waf_audit`, i template degli agenti e le classificazioni Wazuh 110213–110217. La matrice `sfide.csv` associa una difesa a ciascuna delle 118 sfide Juice Shop v20.4.0 (44 WEB, 19 IAM, 15 BUILD, 13 CRS, 8 con regole dedicate, 5 UI, 5 OPS, 5 PUB, 3 WEB3; 18 disabilitate in Docker). Il profilo Ansible per VM dedicate di Finocchielli non si usa sul lab: non eseguire `site.yml`.
 
 ## 3. Step eseguiti
+
+Il 27 novembre AWS Backup è passato a quattro esecuzioni al giorno (02:00, 08:00, 14:00 e 20:00 UTC), con conservazione di sette giorni e RPO di 12 ore verificabile con `verify_recovery_points.py`. I backup manuali di transizione risultano completati per WAF, WEB e SIEM. Nel nuovo account si riparte con dati vuoti.
+
+Il restore da AWS Backup ha ricreato i tre nodi in una VPC isolata. Verificati HTTPS con CA, proxy verso WEB, servizi e regole del SIEM, file degli alert e ricezione di una nuova sonda WAF. I job AWS sono durati circa 77 secondi ciascuno, prima della configurazione di accesso e delle verifiche applicative.
+
+Sul SIEM attivo (2 vCPU / 8 GiB), il campione leggero ha mostrato 4.834 MiB di RAM disponibile, 47% di disco usato e iowait 0–1%. Cinque sonde sono arrivate agli alert in 0,394–1,448 s. Il dato descrive un carico leggero e non dimostra la capacità durante una sessione Cyber. Rinviare il passaggio a 4 vCPU al confronto sotto carico rappresentativo.
+
+TLS verificato con la CA del lab, IP SAN corrispondente e scadenza del certificato server al 13 dicembre 2026 UTC. Chromium, Firefox e WebKit hanno superato i test desktop e mobile con la CA attendibile e senza bypass.
+
+State del lab Free migrato su S3 con cifratura, versioning e lock nativo. Le 70 risorse e tutti gli output coincidono con la copia privata pre-migrazione. Terraform ha assegnato una nuova lineage al backend. Il workflow GitHub Actions è in preparazione. Per l'approvazione serve la configurazione dell'environment da parte del proprietario del repository.
+
+L'installer ufficiale Wazuh 4.14 ora seleziona la 4.14.11. Il bootstrap richiede versione e SHA-256 revisionati. Sulle tre EC2 private nuove sono passati bootstrap, adattatore Cyber e verifica Ansible. Il test browser Blue Team su 4.14.11 ha aperto e ricaricato WEB senza richieste di scrittura sulle viste. La correzione è idempotente insieme alla configurazione della retention. Il SIEM in servizio resta sulla 4.14.10.
+
+Provati 80 marker innocui a due richieste al secondo sul SIEM di prova. Ricevuti 80/80, p95 1,578 s, CPU mediana 3,5%, iowait massimo 3%, 5.099 MiB disponibili e disco al 40%. Manteniamo 2 vCPU/8 GiB per il carico misurato. L'account Free ha rifiutato `c7i-flex.xlarge`. Il confronto diretto a 4 vCPU resta da ripetere se il carico effettivo lo richiede.
 
 | Data | Step | Esito |
 |---|---|---|
@@ -58,10 +72,8 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 | Blocco WAF non attivato | Blue |
 | Sessione SSM `BlueDefence` da collaudare con l'MFA dell'operatore dal proprio PC | Blue |
 | Bootstrap Ansible su tre EC2 nuove (incluso l'installer Wazuh) non collaudato | Cloud |
-| 18 finding Terraform e 5 Ansible di Checkov da rivedere (IAM, SSM, cifratura/retention CloudWatch, SNS, Backup, bucket log S3) | Cloud |
-| SIEM a 2 vCPU sotto il riferimento (4 vCPU/8 GiB/50 GB); nessuno stress test | Cloud |
-| Restore completo del backup non eseguito | Cloud |
-| Test browser con bypass TLS; verifica CA/SAN separata | Cloud |
+| Checkov su tutto il repository. Finding analizzati in [Revisione Checkov](../../documentazione/attuale/AWS%20ACA/Agosta/v3.1/docs/CHECKOV.md). | Cloud |
+| Ripetere la misura SIEM durante una lezione se cresce il carico rispetto alla prova da due richieste al secondo. | Cloud |
 | GitHub Actions con approvazione non implementato | Cloud |
 | Budget 35 USD superato al riavvio del 25/11 con stop già eseguito: verificare consumo e decidere soglia o azione di stop | Cloud |
 | Piano FREE con scadenza rilevata il 28/11/2026; budget AWS ritardato | Cloud |
@@ -85,13 +97,11 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 ### Team Cloud
 
 1. Decidere sul piano crediti (scadenza rilevata del piano FREE il 28/11, a tre giorni) e sul budget da 35 USD, già superato al riavvio del 25/11.
-2. Provare il restore completo del backup su tutti e tre i nodi.
-3. Misurare il SIEM (ritardo marker, RAM, disco, iowait) e decidere il dimensionamento a 4 vCPU/8 GiB.
-4. Collaudare il bootstrap Ansible su EC2 nuove e rivedere i finding Checkov.
-5. Implementare GitHub Actions con approvazione; spostare lo state Terraform su backend remoto.
-6. Verificare TLS con la CA del lab (SAN, scadenza) e togliere il bypass dai test browser.
-7. Definire retention di archivi e indici; valutare gli interventi della sezione 7.
-8. Controllare permessi, egress e gestione segreti (righe OPS e WEB3 della matrice).
+2. Verificare nel nuovo account permessi, tipi EC2 disponibili e bootstrap da Terraform.
+3. Configurare su GitHub l'environment con approvazione indipendente e verificare l'esecuzione OIDC.
+4. Controllare nel nuovo lab l'età dei recovery point e la scadenza degli indici Wazuh.
+5. Provare il perimetro del ruolo EC2 dopo il deploy e il filtro egress del container WEB.
+6. Preparare la stima prudenziale dopo le ultime verifiche.
 
 ### Team Cyber — Blue (difesa)
 
@@ -111,7 +121,7 @@ Finestre di archiviazione grezza richiuse (`logall_json=no`), tunnel di collaudo
 
 ## 7. Da aggiungere per un'architettura ridondata e sicura
 
-Stato attuale: una sola AZ, una sola istanza per ruolo, un solo NAT, backup con retention di un giorno, WAF in `DetectionOnly`. Il guasto di un nodo o della AZ ferma servizio o SIEM. Ogni modifica passa da plan revisionato.
+Stato attuale: una sola AZ, una sola istanza per ruolo, un solo NAT, backup con conservazione di sette giorni, WAF in `DetectionOnly`. Il guasto di un nodo o della AZ ferma servizio o SIEM. Ogni modifica passa da plan revisionato.
 
 ### Ridondanza
 
@@ -123,7 +133,7 @@ Stato attuale: una sola AZ, una sola istanza per ruolo, un solo NAT, backup con 
 | Alta | Cloud | Un NAT gateway per AZ con route table separate | Oggi se il NAT cade, WEB e SIEM perdono l'uscita. |
 | Media | Cloud | Auto Scaling group con minimo 1 per ruolo e AMI preconfezionate | Richiede bootstrap idempotente (già in Ansible). |
 | Media | Cloud + Blue | SIEM: secondo nodo (cluster Wazuh) o almeno snapshot dell'indexer su S3 con ripristino provato | Punto unico più critico per i log. |
-| Media | Cloud | Backup: retention di 7–30 giorni, copia in altra regione o account, restore provato su tutti i nodi | Oggi un giorno. |
+| Media | Cloud | Backup: retention di sette giorni e restore provato su tutti i nodi | Copia tra regioni o account da rivalutare se sarà necessario conservare evidenze. |
 | Media | Cloud + Blue | Log Flow/CloudWatch/S3 con versioning, replica e lifecycle | Retention anche per archivi e indici Wazuh. |
 | Bassa | Cloud + Blue | Piano di continuità: RTO/RPO, runbook di failover, prova periodica | Definire cosa si accetta di perdere. |
 
@@ -139,7 +149,7 @@ Stato attuale: una sola AZ, una sola istanza per ruolo, un solo NAT, backup con 
 | Media | Cloud | AWS WAF o Shield davanti all'ALB per DDoS e rate limiting | Oltre a ModSecurity. |
 | Media | Cloud + Blue | GuardDuty, CloudTrail multi-regione su bucket protetto, Config e Security Hub; allarmi su root, IAM e security group | Il SIEM oggi raccoglie solo log di host. |
 | Media | Cloud | Segreti in Secrets Manager/SSM Parameter Store con rotazione; KMS gestito dal cliente per EBS, S3 e log | Oggi chiave di default. |
-| Media | Cloud | Pipeline CI con `terraform validate`, Checkov e test; chiudere i finding rimasti | Pianificata, non implementata. |
+| Media | Cloud | Pipeline CI con Terraform, Checkov e deploy approvato | Workflow pronto nel ramo di lavoro. Approvazione e OIDC da verificare con i permessi del proprietario del repo. |
 | Media | Cloud | Patching con SSM Patch Manager; pin Wazuh e immagini a digest | Installer 4.14 mutabile. |
 | Bassa | Cloud | VPC endpoint per SSM, S3 e CloudWatch; NACL e SG minimi | Meno superficie e meno costo NAT. |
 | Bassa | Cloud | Allarmi di costo e salute per ogni componente nuovo; SIEM a 4 vCPU/8 GiB | Raddoppiare i nodi raddoppia i costi: rivedere il budget da 35 USD. |

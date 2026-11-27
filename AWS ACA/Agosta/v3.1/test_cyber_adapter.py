@@ -28,6 +28,7 @@ def main():
         assert re.search(rule.findtext("match"), f'bt_waf_audit {{"ruleId":"{waf_id}"}}')
         assert not re.search(rule.findtext("match"), f'bt_waf_audit {{"ruleId":"{waf_id}0"}}')
     assert stage("candidate", AUDIT_CLASSIFICATIONS) in full_siem
+    assert 'logall_json' not in full_siem
     assert stage("candidate", AUDIT_CLASSIFICATIONS) in captured[-2][1]
     assert stage("target", RULE) in captured[-1][1]
     assert 'logall_json' not in captured[-2][1]

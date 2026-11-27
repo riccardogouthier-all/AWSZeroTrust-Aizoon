@@ -17,6 +17,19 @@ resource "aws_iam_role_policy_attachment" "cloudwatch" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
+resource "aws_iam_role_policy" "host_parameter_store_boundary" {
+  name = "deny-parameter-store-data-read"
+  role = aws_iam_role.host.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Deny"
+      Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:GetParameterHistory"]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "host" {
   name = var.instance_profile
   role = aws_iam_role.host.name

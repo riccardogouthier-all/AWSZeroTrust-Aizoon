@@ -14,10 +14,23 @@ def transfer(path,text):
 
 # Do not race cloud-init or reconfigure a partially installed manager.
 for role in ('waf','web','siem'):
- wait(role,send(role,'cloud-init status --wait >/dev/null\ncloud-init status --long','Cyber preflight cloud-init'))
+ preflight = 'cloud-init status --wait >/dev/null\ncloud-init status --long'
+ if role == 'siem':
+  preflight += """
+version=$(dpkg-query -W -f='${Version}' wazuh-manager | cut -d- -f1)
+case "$version" in 4.14.10|4.14.11) ;; *) exit 1 ;; esac
+for package in wazuh-indexer wazuh-dashboard; do
+ test "$(dpkg-query -W -f='${Version}' "$package" | cut -d- -f1)" = "$version"
+done
+"""
+ wait(role,send(role,preflight,'Cyber preflight cloud-init'))
 
 code=transfer('/opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf',rule)+transfer('/opt/blue-team/check_evidence.py',check)+r'''
+import json
 import shutil
+import re
+import subprocess
+from ipaddress import IPv4Address
 root=Path('/opt/aizoon');backup=root/'pre-cyber';backup.mkdir(exist_ok=True,mode=0o700)
 for name in ('waf.env','start-waf.sh'):
  if not (backup/name).exists():shutil.copy2(root/name,backup/name)
@@ -30,7 +43,11 @@ p.write_text(''.join(k+'='+v+'\n' for k,v in values.items()))
 p=root/'start-waf.sh';text=p.read_text();mount='    -v /opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-BLUE-TEAM.conf:ro '+chr(92)+chr(10)
 if '/opt/blue-team/rules/REQUEST-900-BLUE-TEAM.conf:' not in text:
  lines=text.splitlines(keepends=True);index=next(i for i,l in enumerate(lines) if '-v /opt/aizoon/logs:' in l);lines.insert(index+1,mount);text=''.join(lines)
-text=text.replace('--log-opt max-size=10m --log-opt max-file=3','--log-opt max-size=5m --log-opt max-file=2').replace('-p 443:8443','-p 10.20.1.10:443:8443')
+route=json.loads(subprocess.check_output(['ip','-j','-4','route','get','192.0.2.1']))[0]
+bind_ip=IPv4Address(route['prefsrc'])
+text,count=re.subn(r'(-p )(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}:)?443:8443(?=\s)',lambda match:f'{match[1]}{bind_ip}:443:8443',text)
+assert count==1, 'Expected one HTTPS port binding for aizoon-waf'
+text=text.replace('--log-opt max-size=10m --log-opt max-file=3','--log-opt max-size=5m --log-opt max-file=2')
 p.write_text(text)
 '''
 # Configuration is validated before restarting the original container.
@@ -77,13 +94,9 @@ text=re.sub(r'<localfile>.*?</localfile>',retain,text,flags=re.S)
  script=remote(code)+"/var/ossec/bin/wazuh-logcollector -t || { cp /var/ossec/etc/ossec.conf.pre-cyber /var/ossec/etc/ossec.conf; exit 1; }\napt-mark hold wazuh-agent\nsystemctl restart wazuh-agent\nsystemctl is-active wazuh-agent\n"
  wait(role,send(role,script,'Apply cyber agent inputs '+role))
 script=remote(transfer('/opt/blue-team/check_evidence.py',check))+"""
-for package in wazuh-manager wazuh-indexer wazuh-dashboard; do
- test "$(dpkg-query -W -f='${Version}' "$package" | cut -d- -f1)" = 4.14.10
-done
 apt-mark hold wazuh-manager wazuh-indexer wazuh-dashboard filebeat
-sed -i 's#<logall_json>no</logall_json>#<logall_json>yes</logall_json>#' /var/ossec/etc/ossec.conf
 """ + siem_update() + """
 systemctl is-active wazuh-manager wazuh-indexer wazuh-dashboard filebeat
 """
 wait('siem',send('siem',script,'Adopt cyber SIEM settings without reinstall'))
-print('Cyber configuration applied; archives enabled for verification window.')
+print('Cyber configuration applied.')

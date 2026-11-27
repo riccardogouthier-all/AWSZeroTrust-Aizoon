@@ -9,7 +9,11 @@ done
 curl -fsSL https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --dearmor --yes -o /usr/share/keyrings/wazuh.gpg
 echo 'deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main' > /etc/apt/sources.list.d/wazuh.list
 $APT update
-version=$(apt-cache madison wazuh-agent | awk -v p="${WAZUH_SERIES}." '!f && index($3, p) == 1 { print $3; f=1 }')
+version=$(apt-cache madison wazuh-agent | awk -v series="${WAZUH_SERIES}." -v exact="${WAZUH_VERSION:-}" '
+    !found && ((exact != "" && index($3, exact "-") == 1) || (exact == "" && index($3, series) == 1)) {
+        print $3
+        found=1
+    }')
 test -n "$version"
 WAZUH_MANAGER="${SIEM_PRIVATE}" WAZUH_AGENT_NAME="${ROLE}" $APT install "wazuh-agent=$version"
 echo "$version" > /opt/aizoon/wazuh-agent-version
